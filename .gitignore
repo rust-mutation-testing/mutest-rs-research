@@ -43,3 +43,8 @@ Icon?
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Mustest UI
+
+## Mutest output data used for design
+mutest-ui/mutest-output-data

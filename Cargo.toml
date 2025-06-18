@@ -7,6 +7,6 @@ members = [
     "mutest-emit",
     "mutest-json",
     "mutest-operators",
-    "mutest-runtime",
+    "mutest-runtime", "mutest-ui",
     "tests",
 ]
