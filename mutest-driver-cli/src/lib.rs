@@ -101,6 +101,15 @@ pub mod verify {
     }
 }
 
+pub fn clap_styles() -> clap::builder::Styles {
+    use clap::builder::styling::*;
+    Styles::styled()
+        .header(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
+        .usage(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
+        .literal(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))).bold())
+        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))))
+}
+
 pub const fn rustc_version_str() -> &'static str {
     env!("RUSTC_VERSION_STR")
 }
@@ -116,14 +125,7 @@ pub fn command() -> clap::Command {
         .arg_required_else_help(true)
         .disable_help_flag(true)
         .disable_version_flag(true)
-        .styles({
-            use clap::builder::styling::*;
-            Styles::styled()
-                .header(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-                .usage(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-                .literal(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))).bold())
-                .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))))
-        })
+        .styles(clap_styles())
         // Subcommands
         .subcommand(clap::Command::new("print")
             .display_order(2)
