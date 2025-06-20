@@ -1,7 +1,9 @@
 #![feature(decl_macro)]
 
+pub mod common;
+
 use std::path::PathBuf;
-use clap::builder::Styles;
+use common::{clap_styles};
 
 pub macro opts(
     $all:ident, $possible_values_vis:vis $possible_values:ident where
@@ -100,15 +102,6 @@ pub mod verify {
     crate::opts! { ALL, pub(crate) possible_values where
         AST_LOWERING = "ast_lowering";
     }
-}
-
-pub fn clap_styles() -> Styles {
-    use clap::builder::styling::*;
-    Styles::styled()
-        .header(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-        .usage(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-        .literal(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))).bold())
-        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))))
 }
 
 pub fn command() -> clap::Command {
