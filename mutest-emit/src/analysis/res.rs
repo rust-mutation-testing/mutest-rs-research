@@ -131,14 +131,20 @@ pub fn item_children<'tcx>(tcx: TyCtxt<'tcx>, def_id: hir::DefId) -> Box<dyn Ite
             let iter = mod_children.iter()
                 .map(|child| {
                     let res = child.res.expect_non_local();
-                    let reexport = 'reexport: {
-                        let [reexport, ..] = &child.reexport_chain[..] else { break 'reexport None; };
-                        match reexport {
-                            Reexport::Single(_) => Some(*reexport),
-                            Reexport::Glob(_) => None,
-                            Reexport::ExternCrate(_) => Some(*reexport),
-                            Reexport::MacroUse | Reexport::MacroExport => Some(*reexport),
-                        }
+                    let reexport = {
+                        // Find first "opaque" re-export in the chain, which may alter the visible name of the item.
+                        let top_level_opaque_reexport = child.reexport_chain.iter()
+                            .filter(|reexport| {
+                                match reexport {
+                                    Reexport::Single(_) => true,
+                                    Reexport::Glob(_) => false,
+                                    Reexport::ExternCrate(_) => true,
+                                    Reexport::MacroUse | Reexport::MacroExport => true,
+                                }
+                            })
+                            .next();
+
+                        top_level_opaque_reexport.copied()
                     };
                     ItemChild { ident: child.ident, vis: child.vis, res, reexport }
                 });
@@ -514,7 +520,7 @@ pub fn locally_visible_def_path<'tcx>(tcx: TyCtxt<'tcx>, def_id: hir::DefId, mut
                 | hir::DefKind::Trait | hir::DefKind::Impl { .. } | hir::DefKind::TraitAlias
                 | hir::DefKind::Fn | hir::DefKind::Const | hir::DefKind::Static { .. } | hir::DefKind::Ctor(..)
                 | hir::DefKind::AssocTy | hir::DefKind::AssocFn | hir::DefKind::AssocConst
-                | hir::DefKind::AnonConst
+                | hir::DefKind::AnonConst | hir::DefKind::InlineConst
             );
             while is_transparent(tcx.def_kind(scope)) && let Some(parent_scope) = tcx.opt_parent(scope) {
                 scope = parent_scope;
