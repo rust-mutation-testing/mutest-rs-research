@@ -1,6 +1,7 @@
 #![feature(decl_macro)]
 
 use std::path::PathBuf;
+use clap::builder::Styles;
 
 pub macro opts(
     $all:ident, $possible_values_vis:vis $possible_values:ident where
@@ -101,6 +102,15 @@ pub mod verify {
     }
 }
 
+pub fn clap_styles() -> Styles {
+    use clap::builder::styling::*;
+    Styles::styled()
+        .header(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
+        .usage(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
+        .literal(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))).bold())
+        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))))
+}
+
 pub fn command() -> clap::Command {
     let cmd = clap::command!("cargo mutest")
         .propagate_version(true)
@@ -108,14 +118,7 @@ pub fn command() -> clap::Command {
         .arg_required_else_help(true)
         .disable_help_flag(true)
         .disable_version_flag(true)
-        .styles({
-            use clap::builder::styling::*;
-            Styles::styled()
-                .header(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-                .usage(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightGreen))).bold())
-                .literal(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))).bold())
-                .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlue))))
-        })
+        .styles(clap_styles())
         // Subcommands
         .subcommand(clap::Command::new("print")
             .display_order(2)
