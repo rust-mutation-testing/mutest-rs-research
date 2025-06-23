@@ -466,6 +466,9 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "mutest-driver-cli",
+ "mutest-json",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
