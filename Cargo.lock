@@ -493,6 +493,7 @@ dependencies = [
  "mutest-driver-cli",
  "mutest-json",
  "serde",
+ "serde_json",
  "smallvec",
 ]
 
