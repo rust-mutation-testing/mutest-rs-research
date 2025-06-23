@@ -56,10 +56,10 @@ fn main() {
 
     match args.command {
         MutestUiCommands::Server { json_path } => {
-            server(json_path);
+            server(&json_path);
         },
         MutestUiCommands::Report { json_path, export_path } => {
-            report(json_path, export_path);
+            report(&json_path, &export_path);
         }
     }
 }
