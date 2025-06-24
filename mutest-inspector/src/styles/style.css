@@ -1,0 +1,34 @@
+* {
+    margin: 0
+}
+
+.line-content {
+    padding-left: 25px;
+    min-height: 20px;
+    white-space: break-spaces;
+    font-family: monospace;
+}
+
+body {
+    background: #2c2c2c;
+}
+
+.numbers {
+    font-family: monospace;
+    color: #6b6b6b;
+    padding: 0 12px;
+    background: #1c1c1c;
+    user-select: none;
+    text-align: right;
+    vertical-align: top;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+.line-wrapper:hover:not(.new):not(.old) > .numbers {
+    background: #4a4fd7;
+    cursor: text;
+    color: #fff;
+}

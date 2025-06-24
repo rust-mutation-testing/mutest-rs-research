@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+</head>
+<body>
+<div class="file-tree">{% block filetree %}{% endblock %}</div>
+<div class="mutations-wrapper">
+    <div class="mutations-nav">mutations nav</div>
+    <div class="code-wrapper">
+        <table>
+            <tbody>{{ codetable | safe }}</tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>
