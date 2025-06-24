@@ -1,4 +1,7 @@
+extern crate core;
+
 pub mod common;
+mod formatter;
 
 use std::fs::File;
 use std::fs;
@@ -6,6 +9,8 @@ use std::io::{BufReader};
 use std::path::PathBuf;
 use std::ptr::replace;
 use serde::de::{DeserializeOwned, Error as DeError};
+use syntect::parsing::SyntaxSet;
+use syntect_assets::assets::HighlightingAssets;
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
 use mutest_json::{IdxVec, Span};
@@ -85,12 +90,20 @@ fn process_mutation(src_path: &PathBuf, mutation: &Mutation) -> Result<String, B
     let lines = &mut split_lines(&read_file(&path)?);
     let replacement = &mutation.substs.first().unwrap().substitute.replacement; // TODO: not good :(
     replace_mutation(md, lines, replacement);
-    Ok(lines.join("\n"))
+    
+    let syntax_set = SyntaxSet::load_defaults_newlines();
+    let assets = HighlightingAssets::from_binary();
+    let theme = assets.get_theme("Monokai Extended Origin");
+    let opts = formatter::HighlighterOpts::new(syntax_set, theme.clone());
+    let diffs = formatter::LineDiff::new();
+    
+    let formatted = formatter::highlight_and_diff2(opts, lines, diffs)?; // TODO: not good :(
+    Ok(formatted)
 }
 
 fn replace_mutation(md: &MutationData, file: &mut Vec<String>, replacement: &String) {
     let mut target_lines: Vec<String> = vec![];
-    for i in md.begin.line..md.end.line+1 {
+    for i in md.begin.line..=md.end.line {
         target_lines.push(file[i].clone());
     }
     let target = target_lines.join("\n");
@@ -98,12 +111,16 @@ fn replace_mutation(md: &MutationData, file: &mut Vec<String>, replacement: &Str
     file.splice(md.begin.line..md.begin.line, split_lines(&replaced).iter().cloned());
 }
 
-fn iterate_over_mutations(src_path: &PathBuf, mutations: &IdxVec<MutationId, Mutation>) {
+fn iterate_over_mutations(src_path: &PathBuf, mutations: &IdxVec<MutationId, Mutation>, export_path: &PathBuf) {
     mutations.iter().for_each(|mutation| {
         println!("processing mutation {:?}", mutation.mutation_id.0); // TODO: replace with actual logger
-        if let Err(e) = process_mutation(src_path, &mutation) {
+        let proc = process_mutation(src_path, &mutation);
+        if let Err(e) = &proc {
             println!("Error processing mutation: {}", e);
         }
+        let formatted = formatter::render_tpl(&proc.unwrap());
+        export_path;
+        formatted;
     })
 }
 
@@ -125,5 +142,5 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     let md: Metadata = res.unwrap();
     println!("metadata read successfully");
 
-    iterate_over_mutations(json_dir_path, &md.mutations.mutations)
+    iterate_over_mutations(json_dir_path, &md.mutations.mutations, export_path)
 }
