@@ -82,7 +82,7 @@ impl MutationData {
     }
 }
 
-fn process_mutation(src_path: &PathBuf, mutation: &Mutation) -> Result<String, Box<dyn std::error::Error>> {
+fn process_mutation(src_path: &PathBuf, mutation: &Mutation, opts: &formatter::HighlighterOpts) -> Result<String, Box<dyn std::error::Error>> {
     let path = src_path.parent()
         .ok_or_else(|| "Could not get parent path")?
         .join(&mutation.origin_span.path);
@@ -90,13 +90,9 @@ fn process_mutation(src_path: &PathBuf, mutation: &Mutation) -> Result<String, B
     let lines = &mut split_lines(&read_file(&path)?);
     let replacement = &mutation.substs.first().unwrap().substitute.replacement; // TODO: not good :(
     replace_mutation(md, lines, replacement);
-    
-    let syntax_set = SyntaxSet::load_defaults_newlines();
-    let assets = HighlightingAssets::from_binary();
-    let theme = assets.get_theme("Monokai Extended Origin");
-    let opts = formatter::HighlighterOpts::new(syntax_set, theme.clone());
+
     let diffs = formatter::LineDiff::new();
-    
+
     let formatted = formatter::highlight_and_diff2(opts, lines, diffs)?; // TODO: not good :(
     Ok(formatted)
 }
@@ -111,17 +107,22 @@ fn replace_mutation(md: &MutationData, file: &mut Vec<String>, replacement: &Str
     file.splice(md.begin.line..md.begin.line, split_lines(&replaced).iter().cloned());
 }
 
-fn iterate_over_mutations(src_path: &PathBuf, mutations: &IdxVec<MutationId, Mutation>, export_path: &PathBuf) {
+fn iterate_over_mutations(src_path: &PathBuf, mutations: &IdxVec<MutationId, Mutation>, export_path: &PathBuf, opts: &formatter::HighlighterOpts) {
     mutations.iter().for_each(|mutation| {
         println!("processing mutation {:?}", mutation.mutation_id.0); // TODO: replace with actual logger
-        let proc = process_mutation(src_path, &mutation);
+        let proc = process_mutation(src_path, &mutation, opts);
         if let Err(e) = &proc {
             println!("Error processing mutation: {}", e);
         }
         let formatted = formatter::render_tpl(&proc.unwrap());
-        export_path;
-        formatted;
     })
+}
+
+fn get_highlighter_opts() -> formatter::HighlighterOpts {
+    let syntax_set = SyntaxSet::load_defaults_newlines();
+    let assets = HighlightingAssets::from_binary();
+    let theme = assets.get_theme("Monokai Extended Origin");
+    formatter::HighlighterOpts::new(syntax_set, theme.clone())
 }
 
 pub fn server(json_dir_path: &PathBuf) {
@@ -142,5 +143,7 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     let md: Metadata = res.unwrap();
     println!("metadata read successfully");
 
-    iterate_over_mutations(json_dir_path, &md.mutations.mutations, export_path)
+    let opts = get_highlighter_opts();
+    iterate_over_mutations(json_dir_path, &md.mutations.mutations, export_path, &opts);
+    println!("operation completed");
 }

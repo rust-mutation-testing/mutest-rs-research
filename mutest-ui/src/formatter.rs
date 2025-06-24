@@ -149,7 +149,7 @@ fn highlight_and_diff_line(opts: &HighlighterOpts, highlighter: &mut HighlightLi
     tr_str
 }
 
-pub(crate) fn highlight_and_diff2(opts: HighlighterOpts, lines: &Vec<String>, diff: LineDiff) -> Result<String, Box<dyn std::error::Error>> {
+pub(crate) fn highlight_and_diff2(opts: &HighlighterOpts, lines: &Vec<String>, diff: LineDiff) -> Result<String, Box<dyn std::error::Error>> {
     let mut highlighter = HighlightLines::new(&opts.syntax_reference, &opts.theme);
     let mut highlighted = String::new();
     let mut line_indexes = LineCount::new();
