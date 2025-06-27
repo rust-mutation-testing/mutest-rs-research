@@ -1,103 +1,118 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use mutest_json::Idx;
-use crate::mutations::DetectionStatus::{CRASHED, DETECTED, TIMEOUT, UNDETECTED};
+use crate::mutations::DetectionStatus::{Crashed, Detected, Timeout, Undetected};
 
-/// DetectionStatus represents the detection status of a StreamlinedMutation.
+/// Represents the detection status of a mutation.
 pub(crate) enum DetectionStatus {
-    DETECTED,   // mutest: 'D'
-    UNDETECTED, // mutest: '-'
-    CRASHED,    // mutest: 'C'
-    TIMEOUT,    // mutest: 'T'
+    Detected,   // mutest: 'D'
+    Undetected, // mutest: '-'
+    Crashed,    // mutest: 'C'
+    Timeout,    // mutest: 'T'
 }
 
-fn get_detection_status(s: &char) -> Option<DetectionStatus> {
-    match s {
-        'D' => Some(DETECTED),
-        '-' => Some(UNDETECTED),
-        'C' => Some(CRASHED),
-        'T' => Some(TIMEOUT),
-        _ => None,
+impl DetectionStatus {
+    pub fn from(s: u8) -> Option<Self> {
+        match s as char {
+            'D' => Some(Detected),
+            '-' => Some(Undetected),
+            'C' => Some(Crashed),
+            'T' => Some(Timeout),
+            _ => None,
+        }
     }
 }
 
-/// StreamlinedMutation is a streamlined mutation datatype that contains only the data needed by
-/// mutest-ui. This datatype combines data from several of the raw mutest output files.
-pub(crate) struct StreamlinedMutation {
+/// Represents a line and character representing either the start or end of a mutated region.
+pub(crate) struct Range {
+    pub line: usize,
+    pub char: usize,
+}
+
+impl Range {
+    pub fn new((line, char): (usize, usize)) -> Self {
+        Self { line, char }
+    }
+}
+
+/// A streamlined mutation datatype that contains only the data needed by mutest-ui. It combines
+/// data from several of the raw mutest output files into a single struct.
+pub(crate) struct Mutation {
     pub mutation_id: usize,
-    pub detection_status: Option<DetectionStatus>,
-    pub start_line: usize,
-    pub end_line: usize,
-    pub start_char_index: usize,
-    pub end_char_index: usize,
     pub mutation_op: String,
-    pub display_name: String,
-    pub substitution: String,
+    pub name: String,
+    pub starts: Range,
+    pub ends: Range,
+    pub replacement: String,
+    pub detection_status: Option<DetectionStatus>,
 }
 
-/// MutationOverlapRegion represents a region of lines where several grouped mutations would
-/// overlap with each other if displayed inline simultaneously
-pub(crate) struct MutationOverlapRegion {
+impl Mutation {
+    pub fn new(mutation: mutest_json::mutations::Mutation, evaluation: &mutest_json::evaluation::EvaluationInfo) -> Self {
+        Mutation {
+            mutation_id: mutation.mutation_id.as_index(),
+            mutation_op: mutation.mutation_op,
+            name: mutation.display_name,
+            starts: Range::new(mutation.origin_span.begin),
+            ends: Range::new(mutation.origin_span.end),
+            replacement: mutation.substs.into_iter().next().unwrap().substitute.replacement,
+            detection_status: DetectionStatus::from(evaluation.mutation_runs.first().unwrap()
+                .mutation_detection_matrix.overall_detections.as_bytes()[mutation.mutation_id.as_index()])
+        }
+    }
+}
+
+/// Represents a region of lines where several grouped mutations would conflict with each other if
+/// displayed inline simultaneously
+pub(crate) struct Conflict {
     pub start_line: usize,
     pub end_line: usize,
-    pub mutations: Vec<StreamlinedMutation>,
+    pub mutations: Vec<Mutation>,
 }
 
-impl MutationOverlapRegion {
-    fn overlaps(&self, mutation: &StreamlinedMutation) -> bool {
-        mutation.start_line >= self.start_line && mutation.start_line <= self.end_line
+impl Conflict {
+    fn new(mutation: Mutation) -> Self {
+        Conflict {
+            start_line: mutation.starts.line,
+            end_line: mutation.ends.line,
+            mutations: vec![mutation],
+        }
+    }
+    
+    fn conflicts(&self, mutation: &Mutation) -> bool {
+        mutation.starts.line >= self.start_line && mutation.starts.line <= self.end_line ||
+            mutation.ends.line >= self.start_line && mutation.ends.line <= self.end_line
     }
 
-    fn update(&mut self, mutation: StreamlinedMutation) {
-        if mutation.end_line > self.end_line {
-            self.end_line = mutation.end_line
+    fn update(&mut self, mutation: Mutation) {
+        if mutation.ends.line > self.end_line {
+            self.end_line = mutation.ends.line
         }
         self.mutations.push(mutation);
     }
 }
 
-/// FileMutations stores all the mutations in for a given file (key) in a vector of
-/// MutationOverlapRegions.
-pub(crate) type FileMutations = HashMap<PathBuf, Vec<MutationOverlapRegion>>;
+/// Represents all the mutations in for a given file. Each mutation is stored in a conflict, so
+/// that conflicting mutations can be correctly displayed in the interface.
+pub(crate) type Mutations = HashMap<PathBuf, Vec<Conflict>>;
 
-pub(crate) fn streamline_mutations(metadata: &crate::Metadata) -> FileMutations {
-    let mut mutations = FileMutations::new();
-    let mut status_matrix = metadata.evaluation.mutation_runs.first().unwrap().mutation_detection_matrix.overall_detections.chars();
+/// Converts the raw mutest output into a streamlined format that mutest-ui uses.
+pub(crate) fn streamline_mutations(metadata: crate::Metadata) -> Mutations {
+    let mut mutations = Mutations::new();
 
-    'mutations: for mutation in &metadata.mutations.mutations {
-        let subst = mutation.substs.first().unwrap();
-        let (sl, sc) = subst.location.span().begin;
-        let (el, ec) = subst.location.span().end;
-        let id = mutation.mutation_id.as_index();
-        let streamlined = StreamlinedMutation {
-            mutation_id: id,
-            detection_status: get_detection_status(&status_matrix.nth(id).unwrap()),
-            start_line: sl,
-            end_line: el,
-            start_char_index: sc,
-            end_char_index: ec,
-            mutation_op: mutation.mutation_op.clone(),
-            display_name: mutation.display_name.clone(),
-            substitution: subst.substitute.replacement.clone(),
-        };
-        let file = mutations.get_mut(&subst.location.span().path);
+    'mutations: for mutation in metadata.mutations.mutations {
+        let path = mutation.origin_span.path.clone();
+        let mut file = mutations.entry(path).or_default();
+        let streamlined = Mutation::new(mutation, &metadata.evaluation);
         
-        if let Some(file) = file {
-            for group in file {
-                if group.overlaps(&streamlined) {
-                    group.update(streamlined);
-                    continue 'mutations;
-                }
+        for conflict in file.iter_mut() {
+            if conflict.conflicts(&streamlined) {
+                conflict.update(streamlined);
+                continue 'mutations;
             }
         }
         
-        let mut vec: Vec<StreamlinedMutation> = Vec::new();
-        vec.push(streamlined);
-        let group = MutationOverlapRegion{
-            start_line: sl,
-            end_line: el,
-            mutations: vec,
-        };
+        file.push(Conflict::new(streamlined));
     }
 
     mutations
