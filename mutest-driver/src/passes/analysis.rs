@@ -68,6 +68,12 @@ pub fn run(config: &mut Config) -> CompilerResult<Option<AnalysisPassResult>> {
         //       relevant attribute validation is performed during macro expansion.
         mutest_emit::codegen::tool_attr::register(sess, &mut crate_ast);
 
+        if sess.edition() == Edition::Edition2015 {
+            let mut diagnostic = sess.dcx().struct_warn("edition 2015 code is not explicitly supported");
+            diagnostic.note("you may encounter issues with generated code from macro expansion sanitization and mutation operators");
+            diagnostic.emit();
+        }
+
         let result = create_and_enter_global_ctxt(compiler, crate_ast.clone(), |tcx| -> Flow<AnalysisPassResult, ErrorGuaranteed> {
             let (mut generated_crate_ast, def_res) = {
                 let (resolver, expanded_crate_ast) = &*tcx.resolver_for_lowering().borrow();
@@ -416,7 +422,7 @@ pub fn run(config: &mut Config) -> CompilerResult<Option<AnalysisPassResult>> {
                     "".to_owned(),
                     &NoAnn,
                     true,
-                    Edition::Edition2021,
+                    sess.edition(),
                     &sess.psess.attr_id_generator,
                 ),
             );
