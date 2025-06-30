@@ -99,6 +99,10 @@ impl Conflict {
 /// that conflicting mutations can be correctly displayed in the interface.
 pub(crate) type Mutations = HashMap<PathBuf, Vec<Conflict>>;
 
+pub(crate) fn get_source_file_paths(mutations: &Mutations) -> Vec<PathBuf> {
+    mutations.keys().map(|path| path.clone()).collect()
+}
+
 /// Converts the raw mutest output into a streamlined format that mutest-ui uses.
 pub(crate) fn streamline_mutations(metadata: crate::Metadata) -> Mutations {
     let mut mutations = Mutations::new();
