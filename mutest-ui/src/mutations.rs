@@ -31,7 +31,7 @@ pub(crate) struct Range {
 
 impl Range {
     pub fn new((line, char): (usize, usize)) -> Self {
-        Self { line, char }
+        Self { line: line - 1, char: char - 1 }
     }
 }
 
@@ -85,6 +85,9 @@ impl Conflict {
     }
 
     fn update(&mut self, mutation: Mutation) {
+        if mutation.starts.line < self.start_line {
+            self.start_line = mutation.starts.line;
+        }
         if mutation.ends.line > self.end_line {
             self.end_line = mutation.ends.line
         }
