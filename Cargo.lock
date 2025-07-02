@@ -603,6 +603,7 @@ dependencies = [
  "mutest-json",
  "serde",
  "serde_json",
+ "similar",
  "syntect",
  "syntect-assets",
 ]

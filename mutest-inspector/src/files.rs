@@ -23,12 +23,4 @@ impl Files {
     pub fn get_files_map(self) -> FilesMap {
         self.files.clone() // TODO: this is not very performant, but it may be needed in multiple places?
     }
-
-    fn read_file(path: &PathBuf) -> Result<String, std::io::Error> {
-        Ok(fs::read_to_string(path)?)
-    }
-
-    fn split_lines(data: &String) -> Vec<String> {
-        data.replace("\r", "").split("\n").map(|s| s.to_string()).collect()
-    }
 }
