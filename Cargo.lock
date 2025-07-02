@@ -628,7 +628,7 @@ dependencies = [
  "mutest-json",
  "serde",
  "serde_json",
- "smallvec",
+ "similar",
  "syntect",
  "syntect-assets",
 ]
