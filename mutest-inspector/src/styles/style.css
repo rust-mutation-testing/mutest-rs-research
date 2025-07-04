@@ -25,10 +25,49 @@ body {
 
 table {
     border-collapse: collapse;
+    width: 100%;
+}
+
+.detection-status {
+    background: #1c1c1c;
+    width: 0;
 }
 
 .line-wrapper:hover:not(.new):not(.old) > .numbers {
     background: #4a4fd7;
     cursor: text;
     color: #fff;
+}
+
+.line-wrapper.delete {
+    background: rgba(255, 0, 0, 0.25);
+    position: relative;
+
+    td:nth-child(3n)::before {
+        content: "-";
+        color: #fff;
+        position: absolute;
+        margin-left: -20px;
+    }
+}
+
+.line-wrapper.insert {
+    background: rgba(0, 128, 0, 0.4);
+
+    td:nth-child(3n)::before {
+        content: "+";
+        color: #fff;
+        position: absolute;
+        margin-left: -20px;
+    }
+}
+
+.inline-diff {
+    &.old {
+        background: rgba(255, 0, 0, 0.4);
+    }
+
+    &.new {
+        background: rgba(0, 128, 0, 0.7);
+    }
 }

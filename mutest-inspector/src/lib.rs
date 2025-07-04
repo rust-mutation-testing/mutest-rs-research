@@ -3,7 +3,6 @@
 extern crate core;
 
 pub mod common;
-mod formatter;
 mod mutations;
 mod rs_renderer;
 mod files;
@@ -68,68 +67,6 @@ fn split_lines(data: &String) -> Vec<String> {
     data.replace("\r", "").split("\n").map(|s| s.to_string()).collect()
 }
 
-struct MutationPoint {
-    line: usize,
-    char: usize,
-}
-
-impl MutationPoint {
-    fn new((point_line, point_char): &(usize, usize)) -> MutationPoint {
-        MutationPoint { line: *point_line - 1, char: *point_char - 1 } // offset for arrays starting at 0
-    }
-}
-
-struct MutationData {
-    begin: MutationPoint,
-    end: MutationPoint,
-}
-
-impl MutationData {
-    fn new(mutation: &Span) -> MutationData {
-        MutationData {begin: MutationPoint::new(&mutation.begin), end: MutationPoint::new(&mutation.end)}
-    }
-}
-
-fn process_mutation(src_path: &PathBuf, mutation: &Mutation, opts: &formatter::HighlighterOpts) -> Result<String, Box<dyn std::error::Error>> {
-    let path = src_path.parent()
-        .ok_or_else(|| "Could not get parent path")?
-        .join(&mutation.origin_span.path);
-    let md = &MutationData::new(&mutation.origin_span);
-    let lines = &mut split_lines(&read_file(&path)?);
-    let replacement = &mutation.substs.first().unwrap().substitute.replacement; // TODO: not good :(
-    replace_mutation(md, lines, replacement);
-
-    let diffs = formatter::LineDiff::new();
-
-    let formatted = formatter::highlight_and_diff2(opts, lines, diffs)?; // TODO: not good :(
-    Ok(formatted)
-}
-
-fn replace_mutation(md: &MutationData, file: &mut Vec<String>, replacement: &String) {
-    let target_lines = file[md.begin.line..=md.end.line].to_owned();
-    let target = target_lines.join("\n");
-    let replaced = String::from(&target[0..md.begin.char]) + replacement + &target[md.end.char..target.len()];
-    file.splice(md.begin.line..md.begin.line, split_lines(&replaced).iter().cloned());
-}
-
-fn iterate_over_mutations(src_path: &PathBuf, mutations: &IdxVec<MutationId, Mutation>, export_path: &PathBuf, opts: &formatter::HighlighterOpts) {
-    for mutation in mutations {
-        println!("processing mutation {:?}", mutation.mutation_id.0); // TODO: replace with actual logger
-        let proc = process_mutation(src_path, &mutation, opts);
-        if let Err(e) = &proc {
-            println!("Error processing mutation: {}", e);
-        }
-        let formatted = formatter::render_tpl(&proc.unwrap());
-    }
-}
-
-fn get_highlighter_opts() -> formatter::HighlighterOpts {
-    let syntax_set = SyntaxSet::load_defaults_newlines();
-    let assets = HighlightingAssets::from_binary();
-    let theme = assets.get_theme("Monokai Extended Origin");
-    formatter::HighlighterOpts::new(syntax_set, theme.clone())
-}
-
 pub fn server(json_dir_path: &PathBuf) {
     // TODO: reuse below code in future
 }
@@ -149,9 +86,8 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         println!("error: {}", e);
         exit(1);
     }
+
     let mut renderer = Renderer::new(streamlined, source_files.unwrap().get_files_map());
-    renderer.cache_mutations();
-    // let opts = get_highlighter_opts();
-    // iterate_over_mutations(json_dir_path, &md.mutations.mutations, export_path, &opts);
-    // println!("operation completed");
+    renderer.cache_mutations(rs_renderer::SysDiffType::Simple);
+    renderer.render_file(json_dir_path.clone());
 }
