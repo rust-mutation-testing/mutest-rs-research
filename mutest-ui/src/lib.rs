@@ -15,7 +15,6 @@ use std::process::exit;
 use std::ptr::replace;
 use serde::de::{DeserializeOwned, Error as DeError};
 use syntect::parsing::SyntaxSet;
-use syntect_assets::assets::HighlightingAssets;
 use log::error;
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
@@ -80,6 +79,7 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     
     let streamlined = mutations::streamline_mutations(res.unwrap());
     let paths = mutations::get_source_file_paths(&streamlined);
+    let _paths = paths.clone();
     let paths_root = PathBuf::from(json_dir_path.parent().unwrap());
     let source_files = files::Files::new(&paths_root, paths);
     if let Err(e) = source_files {
@@ -89,5 +89,6 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     
     let mut renderer = Renderer::new(streamlined, source_files.unwrap().get_files_map());
     renderer.cache_mutations(rs_renderer::SysDiffType::Simple);
-    renderer.render_file(json_dir_path.clone());
+    let file = renderer.render_file(&_paths.first().unwrap());
+    fs::write("./html-out.html", file);
 }

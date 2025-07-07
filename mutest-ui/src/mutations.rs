@@ -121,6 +121,10 @@ pub(crate) fn streamline_mutations(metadata: crate::Metadata) -> Mutations {
         
         file.push(Conflict::new(streamlined));
     }
+    
+    for (_, conflicts) in &mut mutations {
+        conflicts.sort_by_key(|conflict| conflict.start_line);
+    }
 
     mutations
 }

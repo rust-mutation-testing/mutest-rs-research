@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use minijinja::filters::split;
 use similar::{Algorithm, ChangeTag, TextDiff, TextDiffConfig};
 use syntect::easy::HighlightLines;
-use syntect::highlighting::{Style, Theme};
+use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
-use syntect_assets::assets::HighlightingAssets;
+use uuid::Uuid;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
 use crate::{split_lines};
 
@@ -50,7 +50,6 @@ pub struct Renderer {
     /// represents all mutated source files in map of file path (as in mutations) to file lines.
     source_files: HashMap<PathBuf, Vec<String>>,
     /// stores the current render.
-    current_render: String,
     syntax_set: SyntaxSet,
     syntax_ref: SyntaxReference,
     theme: Theme,
@@ -68,10 +67,9 @@ impl Renderer {
             mutations,
             mutations_cache,
             source_files,
-            current_render: String::new(),
             syntax_set,
             syntax_ref,
-            theme: HighlightingAssets::from_binary().get_theme("Monokai Extended Origin").clone(), // TODO: either choose correct theme or make custom one
+            theme: ThemeSet::load_from_folder("mutest-ui/src/assets/themes").unwrap().themes["Darcula"].clone(),
         }
     }
 
@@ -128,7 +126,7 @@ impl Renderer {
         html_out.push(',');
         html_out.push_str(&rgb.b.to_string());
         html_out.push_str(")\">");
-        html_out.push_str(text);
+        html_out.push_str(html_escape::encode_text(text).as_ref());
         html_out.push_str("</span>");
     }
 
@@ -139,14 +137,18 @@ impl Renderer {
             DiffType::Unchanged => {}
         }
 
-        let ranges: Vec<(Style, &str)> = highlighter.highlight_line(&line_block.text, &self.syntax_set).unwrap();
-        for (style, text) in ranges {
-            Self::highlight(style, text, html_out);
-        }
+        self.highlight_line(&line_block.text, html_out, highlighter);
 
         match line_block.diff_type {
             DiffType::New | DiffType::Old => html_out.push_str("</span>"),
             DiffType::Unchanged => {}
+        }
+    }
+
+    fn highlight_line(&self, line: &String, html_out: &mut String, highlighter: &mut HighlightLines) {
+        let ranges: Vec<(Style, &str)> = highlighter.highlight_line(&line, &self.syntax_set).unwrap();
+        for (style, text) in ranges {
+            Self::highlight(style, text, html_out);
         }
     }
 
@@ -441,22 +443,105 @@ impl Renderer {
         }
     }
 
-    pub fn render_file(&mut self, path: PathBuf) -> &String {
-        self.current_render = String::new();
-        // TODO: follow the process through to render one entire file
-        //  process: render file tree
-        //  process: render code view title
-        //  process: render code view with diff
-        &self.current_render
+    pub fn render_file(&mut self, path: &PathBuf) -> String {
+        let mut current_render = String::from("<!DOCTYPE html><html><link rel=\"stylesheet\" href=\"mutest-ui/src/styles/style.css\" /><script src=\"mutest-ui/src/scripts/mutation-switcher.js\"></script><head></head><body>");
+        self.render_source_code(path, &mut current_render);
+        current_render.push_str("</body></html>");
+        current_render
     }
 
-    fn render_file_tree(&mut self, file: PathBuf) {
+    fn render_file_tree(&mut self, path: &PathBuf) {
         // TODO: render the file tree based off of the
     }
 
-    fn render_source_code(&mut self, file: PathBuf) {
-        // TODO: go through each line and render the source code. also deal with inserting
-        //  mutations into this. should use an increment in the for loop so that lines can be
-        //  skipped.
+    fn render_source_code(&self, path: &PathBuf, html_out: &mut String) {
+        let file_lines = self.source_files.get(path).unwrap();
+        let mut file_conflicts = &self.mutations.get(path).unwrap()[..];
+        let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
+        let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\">");
+        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: 100%;\"></colgroup>");
+        let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: 100%;\"></colgroup>");
+
+        html_out.push_str("<div class=\"main-code-wrapper\"><table>");
+        html_out.push_str(&standard_columns);
+        html_out.push_str("<tbody>");
+
+        let mut file_lines_iter = 0..file_lines.len();
+        // for mut i in 0..file_lines.len() {
+        while let Some(i) = file_lines_iter.next() {
+            if let Some(conflict) = file_conflicts.first() {
+                println!("current_line: {}, conflict_start_line: {}, conflict_end_line: {}", i, conflict.start_line, conflict.end_line);
+                if conflict.start_line == i {
+                    for _ in conflict.start_line..conflict.end_line { file_lines_iter.next(); }
+                    let section_name = format!("conflict-{}", Uuid::new_v4());
+                    html_out.push_str("<tbody class=\"");
+                    html_out.push_str(&section_name);
+                    if conflict.mutations.len() > 1 {
+                        html_out.push_str(" mutation-conflict-region");
+                    }
+                    html_out.push_str("\">");
+                    if conflict.mutations.len() > 1 {
+                        html_out.push_str("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">1 of ");
+                        html_out.push_str(&conflict.mutations.len().to_string());
+                        html_out.push_str(" mutations in region [");
+                        html_out.push_str(&format!("{}:{}", conflict.start_line, conflict.end_line));
+                        html_out.push_str("], Click region to show all mutations</td></tr>");
+                    }
+                    html_out.push_str(&self.mutations_cache[conflict.mutations.first().unwrap().mutation_id]);
+                    html_out.push_str("</tbody>");
+                    if conflict.mutations.len() > 1 {
+                        let mut i = 2;
+                        for mutation in &conflict.mutations[1..] {
+                            html_out.push_str("<tbody class=\"");
+                            html_out.push_str(&section_name);
+                            html_out.push_str(" mutation-conflict-region hidden\">");
+
+                            // TODO: refactor this into a function, identical code used earlier
+                            html_out.push_str("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">");
+                            html_out.push_str(&i.to_string());
+                            html_out.push_str(" of ");
+                            html_out.push_str(&conflict.mutations.len().to_string());
+                            html_out.push_str(" mutations in region [");
+                            html_out.push_str(&format!("{}:{}", conflict.start_line, conflict.end_line));
+                            html_out.push_str("], Click region to show all mutations</td></tr>");
+
+                            html_out.push_str(&self.mutations_cache[mutation.mutation_id]);
+                            html_out.push_str("</tbody>");
+
+                            i += 1;
+                        }
+
+                        // adding mutations to the mutation changer interface
+                        mutation_changer.push_str("<div id=\"");
+                        mutation_changer.push_str(&section_name);
+                        mutation_changer.push_str("\" class=\"mutations\">");
+                        for mutation in &conflict.mutations {
+                            mutation_changer.push_str("<div class=\"mutation-wrapper\" data-target-class=\"");
+                            mutation_changer.push_str(&section_name);
+                            mutation_changer.push_str("\"><table class=\"no-status no-line-wrapper\">");
+                            mutation_changer.push_str(&changer_columns);
+                            mutation_changer.push_str("<tbody>");
+                            mutation_changer.push_str(&self.mutations_cache[mutation.mutation_id]);
+                            mutation_changer.push_str("</tbody></table></div>");
+                        }
+                        mutation_changer.push_str("</div>");
+                    }
+
+                    file_conflicts = &file_conflicts[1..];
+                    println!("file_conflicts.len() = {}", file_conflicts.len());
+                    continue;
+                }
+            }
+
+            Self::get_tr_open(html_out, &DiffType::Unchanged, &DetectionStatus::Undetected, i + 1);
+            html_out.push_str("<td class=\"line-content\">");
+            self.highlight_line(&file_lines[i], html_out, &mut highlighter);
+            html_out.push_str("</td>");
+            Self::get_tr_close(html_out);
+        }
+
+        mutation_changer.push_str("</div>");
+        html_out.push_str("</tbody></table></div>");
+        html_out.push_str(&mutation_changer);
     }
 }
