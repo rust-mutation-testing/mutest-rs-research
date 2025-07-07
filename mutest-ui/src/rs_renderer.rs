@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use minijinja::filters::split;
 use similar::{Algorithm, ChangeTag, TextDiff, TextDiffConfig};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme, ThemeSet};

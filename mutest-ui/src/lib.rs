@@ -13,6 +13,7 @@ use std::io::{BufReader};
 use std::path::PathBuf;
 use std::process::exit;
 use std::ptr::replace;
+use std::time::Instant;
 use serde::de::{DeserializeOwned, Error as DeError};
 use syntect::parsing::SyntaxSet;
 use log::error;
@@ -76,19 +77,41 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         println!("error: {}", e);
         exit(1);
     }
-    
+
+    let t_start = Instant::now();
+    let load_start = Instant::now();
+
     let streamlined = mutations::streamline_mutations(res.unwrap());
     let paths = mutations::get_source_file_paths(&streamlined);
     let _paths = paths.clone();
-    let paths_root = PathBuf::from(json_dir_path.parent().unwrap());
+    let paths_root = PathBuf::from(json_dir_path.parent().unwrap().parent().unwrap());
     let source_files = files::Files::new(&paths_root, paths);
     if let Err(e) = source_files {
         println!("error: {}", e);
         exit(1);
     }
-    
+
+    let load_elapsed = load_start.elapsed();
+    let create_renderer_start = Instant::now();
+
     let mut renderer = Renderer::new(streamlined, source_files.unwrap().get_files_map());
+
+    let create_renderer_elapsed = create_renderer_start.elapsed();
+    let mutations_cache_start = Instant::now();
+
     renderer.cache_mutations(rs_renderer::SysDiffType::Simple);
-    let file = renderer.render_file(&_paths.first().unwrap());
+
+    let mutations_cache_elapsed = mutations_cache_start.elapsed();
+    let render_start = Instant::now();
+
+    let file = renderer.render_file(&PathBuf::from("alacritty/src/display/hint.rs"));
     fs::write("./html-out.html", file);
+
+    let render_elapsed = render_start.elapsed();
+
+    println!("total elapsed:           {:?}", t_start.elapsed());
+    println!("load elapsed:            {:?}", load_elapsed);
+    println!("create renderer elapsed: {:?}", create_renderer_elapsed);
+    println!("mutations cache elapsed: {:?}", mutations_cache_elapsed);
+    println!("render elapsed:          {:?}", render_elapsed);
 }
