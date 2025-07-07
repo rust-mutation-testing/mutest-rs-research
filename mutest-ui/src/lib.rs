@@ -7,7 +7,7 @@ mod mutations;
 mod rs_renderer;
 mod files;
 
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::fs;
 use std::io::{BufReader};
 use std::path::PathBuf;
@@ -63,8 +63,8 @@ fn read_file(path: &PathBuf) -> Result<String, std::io::Error> {
     Ok(fs::read_to_string(path)?)
 }
 
-fn split_lines(data: &String) -> Vec<String> {
-    data.replace("\r", "").split("\n").map(|s| s.to_string()).collect()
+fn split_lines(data: &str) -> Vec<&str> {
+    data.lines().collect()
 }
 
 pub fn server(json_dir_path: &PathBuf) {
@@ -104,8 +104,14 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     let mutations_cache_elapsed = mutations_cache_start.elapsed();
     let render_start = Instant::now();
 
-    let file = renderer.render_file(&PathBuf::from("alacritty/src/display/hint.rs"));
-    fs::write("./html-out.html", file);
+    for path in _paths {
+        let file = renderer.render_file(&path);
+        let mut fpath = PathBuf::from("mutest/report").join(path);
+        fpath.set_extension("rs.html");
+        create_dir_all(&fpath.parent().unwrap());
+        fs::write(&fpath, file);
+        println!("created {}", &fpath.display());
+    }
 
     let render_elapsed = render_start.elapsed();
 

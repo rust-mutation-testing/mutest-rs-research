@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::time::Instant;
 use similar::{Algorithm, ChangeTag, TextDiff, TextDiffConfig};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme, ThemeSet};
@@ -30,14 +31,14 @@ impl DiffType {
     }
 }
 
-struct Line {
+struct Line<'a> {
     diff_type: DiffType,
-    blocks: Vec<LineBlock>,
+    blocks: Vec<LineBlock<'a>>,
     number: usize,
 }
 
-struct LineBlock {
-    text: String,
+struct LineBlock<'a> {
+    text: &'a str,
     diff_type: DiffType,
 }
 
@@ -136,7 +137,7 @@ impl Renderer {
             DiffType::Unchanged => {}
         }
 
-        self.highlight_line(&line_block.text, html_out, highlighter);
+        self.highlight_line(line_block.text, html_out, highlighter);
 
         match line_block.diff_type {
             DiffType::New | DiffType::Old => html_out.push_str("</span>"),
@@ -144,7 +145,7 @@ impl Renderer {
         }
     }
 
-    fn highlight_line(&self, line: &String, html_out: &mut String, highlighter: &mut HighlightLines) {
+    fn highlight_line(&self, line: &str, html_out: &mut String, highlighter: &mut HighlightLines) {
         let ranges: Vec<(Style, &str)> = highlighter.highlight_line(&line, &self.syntax_set).unwrap();
         for (style, text) in ranges {
             Self::highlight(style, text, html_out);
@@ -199,7 +200,7 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: conflict_target_lines.get(i).unwrap().to_owned(),
+                                            text: conflict_target_lines.get(i).unwrap(),
                                         }
                                     ]
                                 })
@@ -213,15 +214,15 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: old_line[0..mutation.starts.char].to_string(),
+                                            text: &old_line[0..mutation.starts.char],
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Old,
-                                            text: old_line[mutation.starts.char..mutation.ends.char].to_string(),
+                                            text: &old_line[mutation.starts.char..mutation.ends.char],
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: old_line[mutation.ends.char..old_line.len()].to_string(),
+                                            text: &old_line[mutation.ends.char..old_line.len()],
                                         }
                                     ]
                                 });
@@ -236,11 +237,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: line[0..mutation.starts.char].to_string(),
+                                                    text: &line[0..mutation.starts.char],
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: line[mutation.starts.char..line.len()].to_string(),
+                                                    text: &line[mutation.starts.char..line.len()],
                                                 }
                                             ]
                                         })
@@ -251,11 +252,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: line[0..mutation.ends.char].to_string(),
+                                                    text: &line[0..mutation.ends.char],
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: line[mutation.ends.char..line.len()].to_string(),
+                                                    text: &line[mutation.ends.char..line.len()],
                                                 }
                                             ]
                                         })
@@ -266,7 +267,7 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: line.to_string(),
+                                                    text: line,
                                                 }
                                             ]
                                         })
@@ -286,15 +287,15 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: new_line[0..mutation.starts.char].to_string(),
+                                            text: &new_line[0..mutation.starts.char],
                                         },
                                         LineBlock {
                                             diff_type: DiffType::New,
-                                            text: new_line[mutation.starts.char..mutation_end_offset].to_string(),
+                                            text: &new_line[mutation.starts.char..mutation_end_offset],
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: new_line[mutation_end_offset..new_line.len()].to_string(),
+                                            text: &new_line[mutation_end_offset..new_line.len()],
                                         }
                                     ]
                                 })
@@ -308,11 +309,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: line[0..mutation.starts.char].to_string(),
+                                                    text: &line[0..mutation.starts.char],
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: line[mutation.starts.char..line.len()].to_string(),
+                                                    text: &line[mutation.starts.char..line.len()],
                                                 }
                                             ]
                                         })
@@ -324,11 +325,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: line[0..end_index].to_string(),
+                                                    text: &line[0..end_index],
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: line[end_index..line.len()].to_string(),
+                                                    text: &line[end_index..line.len()],
                                                 }
                                             ]
                                         })
@@ -339,7 +340,7 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: line.to_string(),
+                                                    text: line,
                                                 }
                                             ]
                                         })
@@ -356,7 +357,7 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: conflict_target_lines.get(i).unwrap().to_owned(),
+                                            text: conflict_target_lines.get(i).unwrap(),
                                         }
                                     ]
                                 })
@@ -469,7 +470,6 @@ impl Renderer {
         // for mut i in 0..file_lines.len() {
         while let Some(i) = file_lines_iter.next() {
             if let Some(conflict) = file_conflicts.first() {
-                println!("current_line: {}, conflict_start_line: {}, conflict_end_line: {}", i, conflict.start_line, conflict.end_line);
                 if conflict.start_line == i {
                     for _ in conflict.start_line..conflict.end_line { file_lines_iter.next(); }
                     let section_name = format!("conflict-{}", Uuid::new_v4());
@@ -527,7 +527,6 @@ impl Renderer {
                     }
 
                     file_conflicts = &file_conflicts[1..];
-                    println!("file_conflicts.len() = {}", file_conflicts.len());
                     continue;
                 }
             }
