@@ -175,7 +175,7 @@ pub struct Call<'tcx> {
 }
 
 // Based on `rustc_mir_transform::inline::cycle::mir_inliner_callees`.
-pub fn mir_callees<'tcx>(tcx: TyCtxt<'tcx>, body_mir: &'tcx mir::Body<'tcx>, generic_args: ty::GenericArgsRef<'tcx>) -> FxHashSet<Call<'tcx>> {
+pub fn mir_callees<'tcx>(tcx: TyCtxt<'tcx>, body_mir: &'tcx mir::Body<'tcx>, generic_args: ty::GenericArgsRef<'tcx>) -> impl Iterator<Item = Call<'tcx>> {
     let instance = ty::Instance { def: body_mir.source.instance, args: generic_args };
     let typing_env = ty::TypingEnv::fully_monomorphized();
 
@@ -191,7 +191,7 @@ pub fn mir_callees<'tcx>(tcx: TyCtxt<'tcx>, body_mir: &'tcx mir::Body<'tcx>, gen
     let unsafe_blocks = body_hir.map(|body_hir| collect_unsafe_blocks(body_hir, body_safety));
 
     body_mir.basic_blocks.iter()
-        .filter_map(|basic_block| {
+        .filter_map(move |basic_block| {
             let terminator = basic_block.terminator();
             let mir::TerminatorKind::Call { func, args: call_args, .. } = &terminator.kind else { return None; };
 
@@ -241,7 +241,6 @@ pub fn mir_callees<'tcx>(tcx: TyCtxt<'tcx>, body_mir: &'tcx mir::Body<'tcx>, gen
                 _ => None,
             }
         })
-        .collect::<FxHashSet<_>>()
 }
 
 pub fn drop_glue_callees<'tcx>(tcx: TyCtxt<'tcx>, body_mir: &'tcx mir::Body<'tcx>, generic_args: ty::GenericArgsRef<'tcx>) -> impl Iterator<Item = Call<'tcx>> {
@@ -282,6 +281,13 @@ impl<'tcx> Callee<'tcx> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InstanceCall<'tcx> {
+    pub callee: Callee<'tcx>,
+    pub safety: hir::Safety,
+    pub span: Span,
+}
+
 pub struct CallTrace<'tcx> {
     pub root: hir::LocalDefId,
     pub nested_calls: SmallVec<[Callee<'tcx>; 1]>,
@@ -304,13 +310,14 @@ pub struct CallGraph<'tcx> {
     pub virtual_calls_count: usize,
     pub dynamic_calls_count: usize,
     pub foreign_calls_count: usize,
-    pub root_calls: FxHashSet<(hir::LocalDefId, Callee<'tcx>, hir::Safety)>,
-    pub nested_calls: Vec<FxHashSet<(Callee<'tcx>, Callee<'tcx>, hir::Safety)>>,
+    pub root_calls: FxHashMap<hir::LocalDefId, Vec<InstanceCall<'tcx>>>,
+    pub nested_calls: Vec<FxHashMap<Callee<'tcx>, Vec<InstanceCall<'tcx>>>>,
 }
 
 impl<'tcx> CallGraph<'tcx> {
     pub fn total_calls_count(&self) -> usize {
-        let mut total_calls_count = self.root_calls.len() + self.nested_calls.iter().map(|calls| calls.len()).sum::<usize>();
+        let mut total_calls_count = self.root_calls.iter().map(|(_, calls)| calls.len()).sum::<usize>()
+            + self.nested_calls.iter().map(|calls| calls.iter().map(|(_, calls)| calls.len()).sum::<usize>()).sum::<usize>();
         // NOTE: Dynamic calls are currently not represented in the call graph, therefore
         //       we have to add their count manually to the total.
         total_calls_count += self.dynamic_calls_count;
@@ -322,14 +329,8 @@ impl<'tcx> CallGraph<'tcx> {
         (!self.root_calls.is_empty() as usize) + self.nested_calls.len()
     }
 
-    pub fn callees_of_nested_caller(&self, caller: Callee<'tcx>) -> Option<impl Iterator<Item = (Callee<'tcx>, hir::Safety)> + '_> {
-        let calls_of_caller = self.nested_calls.iter().find_map(|calls| {
-            let mut calls_of_caller = calls.iter().filter(move |(this_caller, _, _)| *this_caller == caller).peekable();
-            if let Some(_) = calls_of_caller.peek() { return Some(calls_of_caller); }
-            None
-        })?;
-
-        Some(calls_of_caller.map(|(_, callee, safety)| (*callee, *safety)))
+    pub fn callees_of_nested_caller(&self, caller: Callee<'tcx>) -> Option<&[InstanceCall<'tcx>]> {
+        self.nested_calls.iter().find_map(|calls| calls.get(&caller).map(|v| &**v))
     }
 }
 
@@ -364,11 +365,9 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
 
         let body_mir = tcx.instance_mir(ty::InstanceKind::Item(test.def_id.to_def_id()));
 
-        let mut callees = mir_callees(tcx, &body_mir, tcx.mk_args(&[]));
-        callees.extend(drop_glue_callees(tcx, &body_mir, tcx.mk_args(&[])));
-
+        let mut calls = mir_callees(tcx, &body_mir, tcx.mk_args(&[])).collect::<Vec<_>>();
+        calls.extend(drop_glue_callees(tcx, &body_mir, tcx.mk_args(&[])));
         // HACK: We must sort the calls into a stable order for the corresponding diagnostics to be printed in a stable order.
-        let mut calls = callees.into_iter().collect::<Vec<_>>();
         calls.sort_unstable_by(|call_a, call_b| span_diagnostic_ord(call_a.span, call_b.span));
 
         for call in calls {
@@ -428,7 +427,8 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
                 }
             };
 
-            call_graph.root_calls.insert((test.def_id, callee, call.safety));
+            let test_calls = call_graph.root_calls.entry(test.def_id).or_default();
+            test_calls.push(InstanceCall { callee, safety: call.safety, span: call.span });
 
             previously_found_callees.insert(callee);
         }
@@ -485,11 +485,9 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
             if !tcx.is_mir_available(caller.def_id) { continue; }
             let body_mir = tcx.instance_mir(ty::InstanceKind::Item(caller.def_id));
 
-            let mut callees = mir_callees(tcx, &body_mir, caller.generic_args);
-            callees.extend(drop_glue_callees(tcx, &body_mir, caller.generic_args));
-
+            let mut calls = mir_callees(tcx, &body_mir, caller.generic_args).collect::<Vec<_>>();
+            calls.extend(drop_glue_callees(tcx, &body_mir, caller.generic_args));
             // HACK: We must sort the calls into a stable order for the corresponding diagnostics to be printed in a stable order.
-            let mut calls = callees.into_iter().collect::<Vec<_>>();
             calls.sort_unstable_by(|call_a, call_b| span_diagnostic_ord(call_a.span, call_b.span));
 
             for call in calls {
@@ -552,7 +550,8 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
                     }
                 };
 
-                call_graph.nested_calls[distance].insert((caller, callee, call.safety));
+                let caller_calls = call_graph.nested_calls[distance].entry(caller).or_default();
+                caller_calls.push(InstanceCall { callee, safety: call.safety, span: call.span });
 
                 newly_found_callees.insert(callee);
             }
@@ -587,7 +586,7 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
 
     struct CalleeLookupCache<'tcx, 'a> {
         call_graph: &'a CallGraph<'tcx>,
-        cache: UnsafeCell<FxHashMap<Callee<'tcx>, Box<[(Callee<'tcx>, hir::Safety)]>>>,
+        cache: UnsafeCell<FxHashMap<Callee<'tcx>, Option<&'a [InstanceCall<'tcx>]>>>,
     }
 
     impl<'tcx, 'a> CalleeLookupCache<'tcx, 'a> {
@@ -595,12 +594,12 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
             Self { call_graph, cache: UnsafeCell::new(Default::default()) }
         }
 
-        fn callees_of_nested_caller(&self, caller: Callee<'tcx>) -> &[(Callee<'tcx>, hir::Safety)] {
+        fn callees_of_nested_caller(&self, caller: Callee<'tcx>) -> &[InstanceCall<'tcx>] {
             // SAFETY: The lookup cache is an append-only map; existing entries are never modified.
             let cache = unsafe { &mut *self.cache.get() };
 
-            let callees = cache.entry(caller).or_insert_with(|| self.call_graph.callees_of_nested_caller(caller).into_iter().flatten().collect::<Box<[_]>>());
-            callees
+            let callees = cache.entry(caller).or_insert_with(|| self.call_graph.callees_of_nested_caller(caller));
+            callees.unwrap_or_default()
         }
     }
 
@@ -671,13 +670,13 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
             entry_point.unsafe_call_path = Ord::max(unsafety, entry_point.unsafe_call_path);
         }
 
-        for &(callee, safety) in callee_lookup_cache.callees_of_nested_caller(caller) {
+        for &call in callee_lookup_cache.callees_of_nested_caller(caller) {
             // We have encontered a recursion point along this call trace; end the search along this trace.
-            if call_trace.nested_calls.iter().any(|callee_in_trace| callee == *callee_in_trace) { continue; }
+            if call_trace.nested_calls.iter().any(|callee_in_trace| call.callee == *callee_in_trace) { continue; }
 
-            call_trace.nested_calls.push(callee);
+            call_trace.nested_calls.push(call.callee);
 
-            let unsafety = match safety {
+            let unsafety = match call.safety {
                 hir::Safety::Safe => unsafety,
                 hir::Safety::Unsafe => Some(UnsafeSource::Unsafe),
             };
@@ -690,11 +689,13 @@ pub fn reachable_fns<'ast, 'tcx, 'tst>(
 
     let callee_lookup_cache = CalleeLookupCache::new(&call_graph);
     let mut targets: FxHashMap<hir::LocalDefId, Target> = Default::default();
-    for &(entry_point, callee, _safety) in &call_graph.root_calls {
-        let Some(test) = tests.iter().find(|test| test.def_id == entry_point) else { unreachable!() };
-        let unsafety = None;
-        let mut call_trace = CallTrace { root: entry_point, nested_calls: smallvec![callee] };
-        record_targets(tcx, def_res, krate, &test_def_ids, &callee_lookup_cache, test, unsafety, &mut call_trace, &mut targets);
+    for (&entry_point, calls) in &call_graph.root_calls {
+        for call in calls {
+            let Some(test) = tests.iter().find(|test| test.def_id == entry_point) else { unreachable!() };
+            let unsafety = None;
+            let mut call_trace = CallTrace { root: entry_point, nested_calls: smallvec![call.callee] };
+            record_targets(tcx, def_res, krate, &test_def_ids, &callee_lookup_cache, test, unsafety, &mut call_trace, &mut targets);
+        }
     }
 
     (call_graph, targets.into_values().collect())
