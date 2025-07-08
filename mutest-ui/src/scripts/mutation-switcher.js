@@ -31,5 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('mutation-changer-close-btn').addEventListener('click', () => {
         document.getElementById('changer').classList.add('hidden');
+        mcrs.map(_e => _e.classList.remove('selected'));
     })
 });
