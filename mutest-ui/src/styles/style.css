@@ -14,6 +14,11 @@
     --numbers-bg: #3F3F3F;
     --nav-height: 0px;
     --content-height: calc(100vh - var(--nav-height));
+
+    --line-delete: rgba(255, 31, 31, 0.25);
+    --inline-delete: rgba(255, 0, 0, 0.4);
+    --line-insert: rgba(0, 128, 0, 0.24);
+    --inline-insert: rgba(0, 128, 0, 0.7);
 }
 
 .line-content {
@@ -106,7 +111,7 @@ table {
 }
 
 .line-wrapper.delete {
-    background: rgba(255, 0, 0, 0.25);
+    background: var(--line-delete);
 
     td:nth-child(3n)::before {
         content: "-";
@@ -117,7 +122,7 @@ table {
 }
 
 .line-wrapper.insert {
-    background: rgba(0, 128, 0, 0.4);
+    background: var(--line-insert);
 
     td:nth-child(3n)::before {
         content: "+";
@@ -131,11 +136,11 @@ table {
     border-radius: 5px;
 
     &.old {
-        background: rgba(255, 0, 0, 0.4);
+        background: var(--inline-delete);
     }
 
     &.new {
-        background: rgba(0, 128, 0, 0.7);
+        background: var(--inline-insert);
     }
 }
 
