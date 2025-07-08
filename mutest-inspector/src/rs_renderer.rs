@@ -32,14 +32,14 @@ impl DiffType {
     }
 }
 
-struct Line<'a> {
+struct Line {
     diff_type: DiffType,
-    blocks: Vec<LineBlock<'a>>,
+    blocks: Vec<LineBlock>,
     number: usize,
 }
 
-struct LineBlock<'a> {
-    text: &'a str,
+struct LineBlock {
+    text: String,
     diff_type: DiffType,
 }
 
@@ -107,11 +107,12 @@ impl Renderer {
             DetectionStatus::Crashed => line.push_str("crashed"),
             DetectionStatus::Timeout => line.push_str("timeout"),
         }
-        line.push_str("\"></div></td><td class=\"numbers\">");
+        line.push_str("\"></div></td><td class=\"numbers");
         if line_number != 0 {
+            line.push_str("\">");
             line.push_str(&line_number.to_string());
         } else {
-            line.push_str("--");
+            line.push_str(" new\">");
         }
         line.push_str("</td>");
     }
@@ -140,7 +141,7 @@ impl Renderer {
             DiffType::Unchanged => {}
         }
 
-        self.highlight_line(line_block.text, html_out, highlighter);
+        self.highlight_line(&line_block.text, html_out, highlighter);
 
         match line_block.diff_type {
             DiffType::New | DiffType::Old => html_out.push_str("</span>"),
@@ -186,11 +187,11 @@ impl Renderer {
                     let replaced = Self::replace(&conflict_target, &mutation.replacement, start_char_index, end_char_index);
 
                     // diffing and highlighting
+                    let mut lines: Vec<Line> = Vec::new();
                     let mut mutation_string = String::new();
 
                     match diff_type {
                         SysDiffType::Simple => {
-                            let mut lines: Vec<Line> = Vec::new();
                             let unchanged_start_lines = mutation.starts.line - conflict.start_line;
                             let unchanged_end_lines = conflict.end_line - mutation.ends.line;
                             let mut mutation_end_line_index = conflict_target_lines.len() - unchanged_end_lines - 1;
@@ -203,7 +204,7 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: conflict_target_lines.get(i).unwrap(),
+                                            text: conflict_target_lines.get(i).unwrap().to_string(),
                                         }
                                     ]
                                 });
@@ -218,15 +219,15 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: &old_line[0..mutation.starts.char],
+                                            text: old_line[0..mutation.starts.char].to_string(),
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Old,
-                                            text: &old_line[mutation.starts.char..mutation.ends.char],
+                                            text: old_line[mutation.starts.char..mutation.ends.char].to_string(),
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: &old_line[mutation.ends.char..old_line.len()],
+                                            text: old_line[mutation.ends.char..old_line.len()].to_string(),
                                         }
                                     ]
                                 });
@@ -242,11 +243,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: &line[0..mutation.starts.char],
+                                                    text: line[0..mutation.starts.char].to_string(),
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: &line[mutation.starts.char..line.len()],
+                                                    text: line[mutation.starts.char..line.len()].to_string(),
                                                 }
                                             ]
                                         });
@@ -258,11 +259,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: &line[0..mutation.ends.char],
+                                                    text: line[0..mutation.ends.char].to_string(),
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: &line[mutation.ends.char..line.len()],
+                                                    text: line[mutation.ends.char..line.len()].to_string(),
                                                 }
                                             ]
                                         });
@@ -274,7 +275,7 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Old,
-                                                    text: line,
+                                                    text: line.to_string(),
                                                 }
                                             ]
                                         });
@@ -295,15 +296,15 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: &new_line[0..mutation.starts.char],
+                                            text: new_line[0..mutation.starts.char].to_string(),
                                         },
                                         LineBlock {
                                             diff_type: DiffType::New,
-                                            text: &new_line[mutation.starts.char..mutation_end_offset],
+                                            text: new_line[mutation.starts.char..mutation_end_offset].to_string(),
                                         },
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: &new_line[mutation_end_offset..new_line.len()],
+                                            text: new_line[mutation_end_offset..new_line.len()].to_string(),
                                         }
                                     ]
                                 });
@@ -318,11 +319,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: &line[0..mutation.starts.char],
+                                                    text: line[0..mutation.starts.char].to_string(),
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: &line[mutation.starts.char..line.len()],
+                                                    text: line[mutation.starts.char..line.len()].to_string(),
                                                 }
                                             ]
                                         });
@@ -335,11 +336,11 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: &line[0..end_index],
+                                                    text: line[0..end_index].to_string(),
                                                 },
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
-                                                    text: &line[end_index..line.len()],
+                                                    text: line[end_index..line.len()].to_string(),
                                                 }
                                             ]
                                         });
@@ -351,7 +352,7 @@ impl Renderer {
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::New,
-                                                    text: line,
+                                                    text: line.to_string(),
                                                 }
                                             ]
                                         });
@@ -369,22 +370,17 @@ impl Renderer {
                                     blocks: vec![
                                         LineBlock {
                                             diff_type: DiffType::Unchanged,
-                                            text: conflict_target_lines.get(i).unwrap(),
+                                            text: conflict_target_lines.get(i).unwrap().to_string(),
                                         }
                                     ]
                                 });
                                 self.no_lines_rendered += 1;
                             }
-
-                            self.render_mutation(lines, &mut mutation_string);
                         },
                         SysDiffType::Advanced => {
                             let diff = TextDiff::from_lines(&conflict_target, &replaced);
                             let changes: Vec<_> = diff.iter_all_changes().collect();
 
-                            // TODO: need some kind of structure to store line diff indexes and then pass
-                            //  all of that into the double_diff_highlighter fn or whatever ill call it...
-                            // TODO: is that even the best way of representing it?
                             for (i, change) in changes.iter().enumerate() {
                                 match change.tag() {
                                     ChangeTag::Delete => {
@@ -392,30 +388,70 @@ impl Renderer {
                                         if let Some(insert_change) = changes.get(i + 1)
                                             .filter(|c| c.tag() == ChangeTag::Insert) {
 
-                                            let char_diff = TextDiff::from_words(change.value(), insert_change.value());
+                                            let word_diff = TextDiff::from_words(change.value(), insert_change.value());
+                                            let mut line = Line {
+                                                diff_type: DiffType::Old,
+                                                number: conflict.start_line + i,
+                                                blocks: vec![],
+                                            };
 
-                                            let mut output = String::from("-");
+                                            let mut inline_delete_value = String::new();
+                                            let mut inline_unchange_value = String::new();
 
-                                            for char_change in char_diff.iter_all_changes() {
-                                                match char_change.tag() {
+                                            for word_change in word_diff.iter_all_changes() {
+                                                match word_change.tag() {
                                                     ChangeTag::Delete => {
-                                                        output.push_str(&format!("\x1b[31m{}\x1b[0m", char_change.value())); // Red for deleted
+                                                        inline_delete_value.push_str(word_change.value());
+
+                                                        if inline_unchange_value != "" {
+                                                            line.blocks.push(LineBlock {
+                                                                diff_type: DiffType::Unchanged,
+                                                                text: inline_unchange_value.clone(),
+                                                            });
+                                                            inline_unchange_value = String::new();
+                                                        }
                                                     }
                                                     ChangeTag::Insert => {}
                                                     ChangeTag::Equal => {
-                                                        output.push_str(char_change.value());
+                                                        inline_unchange_value.push_str(word_change.value());
+
+                                                        if inline_delete_value != "" {
+                                                            line.blocks.push(LineBlock {
+                                                                diff_type: DiffType::Old,
+                                                                text: inline_delete_value.clone(),
+                                                            });
+                                                            inline_delete_value = String::new();
+                                                        }
                                                     }
                                                 }
                                             }
-                                            if !output.ends_with("\n") {
-                                                output.push_str("\n");
+
+                                            if inline_unchange_value != "" {
+                                                line.blocks.push(LineBlock {
+                                                    diff_type: DiffType::Unchanged,
+                                                    text: inline_unchange_value.clone(),
+                                                });
                                             }
-                                            print!("{}", output);
+
+                                            if inline_delete_value != "" {
+                                                line.blocks.push(LineBlock {
+                                                    diff_type: DiffType::Old,
+                                                    text: inline_delete_value.clone(),
+                                                });
+                                            }
+
+                                            lines.push(line);
                                         } else {
-                                            print!("-\x1b[31m{}\x1b[0m", change.value());
-                                            if !change.value().ends_with("\n") {
-                                                println!();
-                                            }
+                                            lines.push(Line {
+                                                diff_type: DiffType::Old,
+                                                number: conflict.start_line + i,
+                                                blocks: vec![
+                                                    LineBlock {
+                                                        diff_type: DiffType::Unchanged,
+                                                        text: change.value().to_string(),
+                                                    }
+                                                ]
+                                            });
                                         }
                                     }
                                     ChangeTag::Insert => {
@@ -423,33 +459,90 @@ impl Renderer {
                                         if let Some(delete_change) = changes.get(i - 1)
                                             .filter(|c| c.tag() == ChangeTag::Delete) {
 
-                                            let char_diff = TextDiff::from_words(delete_change.value(), change.value());
+                                            let word_diff = TextDiff::from_words(delete_change.value(), change.value());
+                                            let mut line = Line {
+                                                diff_type: DiffType::New,
+                                                number: 0,
+                                                blocks: vec![],
+                                            };
 
-                                            print!("+");
+                                            let mut inline_insert_value = String::new();
+                                            let mut inline_unchange_value = String::new();
 
-                                            for change in char_diff.iter_all_changes() {
-                                                match change.tag() {
+                                            for word_change in word_diff.iter_all_changes() {
+                                                match word_change.tag() {
                                                     ChangeTag::Delete => {}
                                                     ChangeTag::Insert => {
-                                                        print!("\x1b[32m{}\x1b[0m", change.value()); // Green for inserted
+                                                        inline_insert_value.push_str(word_change.value());
+
+                                                        if inline_unchange_value != "" {
+                                                            line.blocks.push(LineBlock {
+                                                                diff_type: DiffType::Unchanged,
+                                                                text: inline_unchange_value.clone(),
+                                                            });
+                                                            inline_unchange_value = String::new();
+                                                        }
                                                     }
                                                     ChangeTag::Equal => {
-                                                        print!("{}", change.value());
+                                                        inline_unchange_value.push_str(word_change.value());
+
+                                                        if inline_insert_value != "" {
+                                                            line.blocks.push(LineBlock {
+                                                                diff_type: DiffType::New,
+                                                                text: inline_insert_value.clone(),
+                                                            });
+                                                            inline_insert_value = String::new();
+                                                        }
                                                     }
                                                 }
                                             }
+
+                                            if inline_unchange_value != "" {
+                                                line.blocks.push(LineBlock {
+                                                    diff_type: DiffType::Unchanged,
+                                                    text: inline_unchange_value.clone(),
+                                                });
+                                            }
+
+                                            if inline_insert_value != "" {
+                                                line.blocks.push(LineBlock {
+                                                    diff_type: DiffType::New,
+                                                    text: inline_insert_value.clone(),
+                                                });
+                                            }
+
+                                            lines.push(line);
                                         } else {
-                                            print!("+\x1b[32m{}\x1b[0m", change.value());
+                                            lines.push(Line {
+                                                diff_type: DiffType::New,
+                                                number: 0,
+                                                blocks: vec![
+                                                    LineBlock {
+                                                        diff_type: DiffType::Unchanged,
+                                                        text: change.value().to_string(),
+                                                    }
+                                                ]
+                                            });
                                         }
                                     }
                                     ChangeTag::Equal => {
-                                        print!("={}", change.value());
-                                    } // Ignore Equal changes
+                                        lines.push(Line {
+                                            diff_type: DiffType::Unchanged,
+                                            number: conflict.start_line + i,
+                                            blocks: vec![
+                                                LineBlock {
+                                                    diff_type: DiffType::Unchanged,
+                                                    text: change.value().to_string(),
+                                                }
+                                            ]
+                                        });
+                                    }
                                 }
                             }
                         },
                     }
 
+                    self.render_mutation(lines, &mut mutation_string);
                     self.mutations_cache[mutation.mutation_id] = mutation_string;
                 }
             }
