@@ -9,7 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
             e.classList.add('selected');
             let changer = document.getElementById('changer');
             changer.classList.remove('hidden');
-            [...changer.children].map(e => e.classList.add('hidden'));
+            let regions = document.getElementById('changer-regions');
+            [...regions.children].map(e => e.classList.add('hidden'));
             console.log(e.classList[0]);
             document.getElementById(e.classList[0]).classList.remove('hidden');
         });
@@ -27,4 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els[index].classList.add('selected');
         });
     });
+
+    document.getElementById('mutation-changer-close-btn').addEventListener('click', () => {
+        document.getElementById('changer').classList.add('hidden');
+    })
 });

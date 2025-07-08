@@ -12,7 +12,7 @@
     --main-bg: #474747;
     --code-bg: #383838;
     --numbers-bg: #3F3F3F;
-    --nav-height: 0px;
+    --nav-height: 40px;
     --content-height: calc(100vh - var(--nav-height));
 
     --line-delete: rgba(255, 31, 31, 0.25);
@@ -178,18 +178,32 @@ table {
 
 .mutation-changer {
     background: var(--main-bg);
-    padding: 10px;
     border-left: solid 1px var(--border-color);
     width: 550px;
     flex-shrink: 0;
-    height: var(--content-height);
     overflow-y: auto;
     overflow-x: hidden;
+    height: 100vh;
 
-    & > .mutations {
+    & > .mutation-changer-nav {
+        height: var(--nav-height);
+        border-bottom: solid 1px var(--border-color);
         display: flex;
-        flex-direction: column;
-        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px;
+    }
+
+    & > .mutations-wrapper {
+        padding: 10px;
+        height: var(--content-height);
+        overflow: auto;
+
+        & > .mutations {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
     }
 
     & .mutation-content-wrapper {
@@ -226,7 +240,7 @@ table {
     }
 
     &.hidden, & .hidden {
-        display: none;
+        display: none !important;
     }
 }
 
@@ -239,4 +253,29 @@ table {
     cursor: pointer;
     padding: 2px;
     user-select: none;
+}
+
+.window-title {
+    font-family: monospace;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.nav-button {
+    background: var(--main-bg);
+    color: #fff;
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    outline: none;
+    border: none;
+    font-family: monospace;
+    font-weight: 500;
+    font-size: 15px;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--code-bg);
+    }
 }
