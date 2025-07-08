@@ -54,6 +54,7 @@ pub struct Renderer {
     syntax_set: SyntaxSet,
     syntax_ref: SyntaxReference,
     theme: Theme,
+    no_lines_rendered: usize,
 }
 
 impl Renderer {
@@ -71,6 +72,7 @@ impl Renderer {
             syntax_set,
             syntax_ref,
             theme: ThemeSet::load_from_folder("mutest-ui/src/assets/themes").unwrap().themes["Darcula"].clone(),
+            no_lines_rendered: 0,
         }
     }
 
@@ -204,7 +206,8 @@ impl Renderer {
                                             text: conflict_target_lines.get(i).unwrap(),
                                         }
                                     ]
-                                })
+                                });
+                                self.no_lines_rendered += 1;
                             }
 
                             if mutation.starts.line == mutation.ends.line {
@@ -227,6 +230,7 @@ impl Renderer {
                                         }
                                     ]
                                 });
+                                self.no_lines_rendered += 3;
                             } else {
                                 for i in unchanged_start_lines..=mutation_end_line_index {
                                     let line = conflict_target_lines.get(i).unwrap();
@@ -245,7 +249,8 @@ impl Renderer {
                                                     text: &line[mutation.starts.char..line.len()],
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 2;
                                     } else if i == mutation_end_line_index {
                                         lines.push(Line {
                                             diff_type: DiffType::Old,
@@ -260,7 +265,8 @@ impl Renderer {
                                                     text: &line[mutation.ends.char..line.len()],
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 2;
                                     } else {
                                         lines.push(Line {
                                             diff_type: DiffType::Old,
@@ -271,7 +277,8 @@ impl Renderer {
                                                     text: line,
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 1;
                                     }
                                 }
                             }
@@ -299,7 +306,8 @@ impl Renderer {
                                             text: &new_line[mutation_end_offset..new_line.len()],
                                         }
                                     ]
-                                })
+                                });
+                                self.no_lines_rendered += 3;
                             } else {
                                 for i in unchanged_start_lines..=mutation_end_line_index {
                                     let line = replaced_lines.get(i).unwrap();
@@ -317,7 +325,8 @@ impl Renderer {
                                                     text: &line[mutation.starts.char..line.len()],
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 2;
                                     } else if i == mutation_end_line_index {
                                         let end_index = split_lines(&mutation.replacement).last().unwrap().len();
                                         lines.push(Line {
@@ -333,7 +342,8 @@ impl Renderer {
                                                     text: &line[end_index..line.len()],
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 2;
                                     } else {
                                         lines.push(Line {
                                             diff_type: DiffType::New,
@@ -344,7 +354,8 @@ impl Renderer {
                                                     text: line,
                                                 }
                                             ]
-                                        })
+                                        });
+                                        self.no_lines_rendered += 1;
                                     }
                                 }
                             }
@@ -361,7 +372,8 @@ impl Renderer {
                                             text: conflict_target_lines.get(i).unwrap(),
                                         }
                                     ]
-                                })
+                                });
+                                self.no_lines_rendered += 1;
                             }
 
                             self.render_mutation(lines, &mut mutation_string);
@@ -447,19 +459,19 @@ impl Renderer {
     pub fn render_file(&mut self, path: &PathBuf, path_depth: usize, styles: &Vec<PathBuf>, scripts: &Vec<PathBuf>) -> String {
         let mut current_render = String::from("<!DOCTYPE html><html><head>");
         let mut path_prefix = String::with_capacity(64);
-        
+
         for _ in 0..path_depth {
             path_prefix.push_str("../");
         }
-        
+
         for style in styles {
             current_render.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", path_prefix, style.display()));
         }
-        
+
         for script in scripts {
             current_render.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", path_prefix, script.display()));
         }
-        
+
         current_render.push_str("</head><body>");
         self.render_source_code(path, &mut current_render);
         current_render.push_str("</body></html>");
@@ -470,7 +482,7 @@ impl Renderer {
         // TODO: render the file tree based off of the
     }
 
-    fn render_source_code(&self, path: &PathBuf, html_out: &mut String) {
+    fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
         let file_lines = self.source_files.get(path).unwrap();
         let mut file_conflicts = &self.mutations.get(path).unwrap()[..];
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
@@ -552,10 +564,15 @@ impl Renderer {
             self.highlight_line(&file_lines[i], html_out, &mut highlighter);
             html_out.push_str("</td>");
             Self::get_tr_close(html_out);
+            self.no_lines_rendered += 1;
         }
 
         mutation_changer.push_str("</div>");
         html_out.push_str("</tbody></table></div>");
         html_out.push_str(&mutation_changer);
+    }
+
+    pub fn get_no_lines_rendered(&self) -> usize {
+        self.no_lines_rendered
     }
 }
