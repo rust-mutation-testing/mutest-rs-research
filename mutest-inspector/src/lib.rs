@@ -101,6 +101,7 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
 
     renderer.cache_mutations(rs_renderer::SysDiffType::Simple);
 
+    println!("[mutest-report] caching mutations...");
     let mutations_cache_elapsed = mutations_cache_start.elapsed();
     let render_start = Instant::now();
 
@@ -110,14 +111,14 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         fpath.set_extension("rs.html");
         create_dir_all(&fpath.parent().unwrap());
         fs::write(&fpath, file);
-        println!("created {}", &fpath.display());
+        println!("[mutest-report] created {}", &fpath.display());
     }
 
     let render_elapsed = render_start.elapsed();
 
-    println!("total elapsed:           {:?}", t_start.elapsed());
-    println!("load elapsed:            {:?}", load_elapsed);
-    println!("create renderer elapsed: {:?}", create_renderer_elapsed);
-    println!("mutations cache elapsed: {:?}", mutations_cache_elapsed);
-    println!("render elapsed:          {:?}", render_elapsed);
+    println!("[mutest-report] report created in {:?}, detailed timings below:", t_start.elapsed());
+    println!("    load elapsed:            {:?}", load_elapsed);
+    println!("    create renderer elapsed: {:?}", create_renderer_elapsed);
+    println!("    mutations cache elapsed: {:?}", mutations_cache_elapsed);
+    println!("    render elapsed:          {:?}", render_elapsed);
 }
