@@ -122,8 +122,9 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     }
 
     let t_start = Instant::now();
-    let load_start = Instant::now();
 
+    println!("[mutest-report] loading assets...");
+    let load_start = Instant::now();
     let streamlined = mutations::streamline_mutations(res.unwrap());
     let paths = mutations::get_source_file_paths(&streamlined);
     let _paths = paths.clone();
@@ -133,24 +134,35 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         println!("error: {}", e);
         exit(1);
     }
-
     let load_elapsed = load_start.elapsed();
+
+    println!("[mutest-report] creating renderer...");
     let create_renderer_start = Instant::now();
-
     let mut renderer = Renderer::new(streamlined, source_files.unwrap().get_files_map());
-
     let create_renderer_elapsed = create_renderer_start.elapsed();
-    let mutations_cache_start = Instant::now();
 
-    renderer.cache_mutations(rs_renderer::SysDiffType::Simple);
+    println!("[mutest-report] caching generic interface components (GICs)...");
+    let cache_gic_start = Instant::now();
+    // TODO: cache GICs
+    let cache_gic_elapsed = cache_gic_start.elapsed();
+
+    println!("[mutest-report] caching file tree...");
+    let cache_file_tree_start = Instant::now();
+    // TODO: cache the file tree
+    let cache_file_tree_elapsed = cache_file_tree_start.elapsed();
 
     println!("[mutest-report] caching mutations...");
+    let mutations_cache_start = Instant::now();
+    renderer.cache_mutations(rs_renderer::SysDiffType::Advanced);
     let mutations_cache_elapsed = mutations_cache_start.elapsed();
-    let render_start = Instant::now();
 
     println!("[mutest-report] copying assets...");
+    let copy_assets_start = Instant::now();
     let (style_paths, script_paths) = cp_scripts_and_styles(&PathBuf::from("mutest/report"));
+    let copy_assets_elapsed = copy_assets_start.elapsed();
 
+    println!("[mutest-report] beginning render process...");
+    let render_start = Instant::now();
     for path in _paths {
         let depth = path_depth(&path) + 1;
         let file = renderer.render_file(&path, depth, &style_paths, &script_paths);
@@ -160,12 +172,14 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         fs::write(&fpath, file);
         println!("[mutest-report] created {}", &fpath.display());
     }
-
     let render_elapsed = render_start.elapsed();
 
-    println!("[mutest-report] report created in {:?}, detailed timings below:", t_start.elapsed());
+    println!("[mutest-report] report created in {:?}, rendered {:?} line blocks. detailed timings below:", t_start.elapsed(), renderer.get_no_lines_rendered());
     println!("    load elapsed:            {:?}", load_elapsed);
     println!("    create renderer elapsed: {:?}", create_renderer_elapsed);
+    println!("    caching GICs elapsed:    {:?}", cache_gic_elapsed);
+    println!("    cache file tree elapsed: {:?}", cache_file_tree_elapsed);
     println!("    mutations cache elapsed: {:?}", mutations_cache_elapsed);
+    println!("    copy assets elapsed:     {:?}", copy_assets_elapsed);
     println!("    render elapsed:          {:?}", render_elapsed);
 }
