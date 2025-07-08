@@ -10,13 +10,14 @@ mod files;
 use std::fs::{create_dir_all, File};
 use std::fs;
 use std::io::{BufReader};
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 use std::process::exit;
 use std::ptr::replace;
 use std::time::Instant;
 use serde::de::{DeserializeOwned, Error as DeError};
 use syntect::parsing::SyntaxSet;
 use log::error;
+use walkdir::WalkDir;
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
 use mutest_json::{IdxVec, Span};
@@ -67,6 +68,48 @@ fn split_lines(data: &str) -> Vec<&str> {
     data.lines().collect()
 }
 
+fn explore_directory(target_directory: &PathBuf) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = Vec::new();
+
+    for entry in WalkDir::new(target_directory) {
+        let path = entry.expect("WalkDir error").into_path();
+        if path.is_file() {
+            files.push(path);
+        }
+    }
+
+    files
+}
+
+fn cp_scripts_and_styles(target_report_dir: &PathBuf) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    let styles = explore_directory(&PathBuf::from("mutest-ui/src/styles"));
+    let scripts = explore_directory(&PathBuf::from("mutest-ui/src/scripts"));
+    let mut moved_styles: Vec<PathBuf> = Vec::new();
+    let mut moved_scripts: Vec<PathBuf> = Vec::new();
+
+    let styles_path = PathBuf::from(target_report_dir).join("__mutest_report_assets/styles");
+    create_dir_all(&styles_path);
+    for style in &styles {
+        let new_style_path = PathBuf::from(&styles_path).join(style.file_name().unwrap());
+        fs::copy(&style, &new_style_path);
+        moved_styles.push(new_style_path);
+    }
+
+    let scripts_path = PathBuf::from(target_report_dir).join("__mutest_report_assets/scripts");
+    create_dir_all(&scripts_path);
+    for script in &scripts {
+        let new_script_path = PathBuf::from(&scripts_path).join(script.file_name().unwrap());
+        fs::copy(&script, &new_script_path);
+        moved_scripts.push(new_script_path);
+    }
+
+    (moved_styles, moved_scripts)
+}
+
+fn path_depth(path: &PathBuf) -> usize {
+    path.components().filter(|c| matches!(c, Component::Normal(_))).count()
+}
+
 pub fn server(json_dir_path: &PathBuf) {
     // TODO: reuse below code in future
 }
@@ -105,8 +148,12 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     let mutations_cache_elapsed = mutations_cache_start.elapsed();
     let render_start = Instant::now();
 
+    println!("[mutest-report] copying assets...");
+    let (style_paths, script_paths) = cp_scripts_and_styles(&PathBuf::from("mutest/report"));
+
     for path in _paths {
-        let file = renderer.render_file(&path);
+        let depth = path_depth(&path) + 1;
+        let file = renderer.render_file(&path, depth, &style_paths, &script_paths);
         let mut fpath = PathBuf::from("mutest/report").join(path);
         fpath.set_extension("rs.html");
         create_dir_all(&fpath.parent().unwrap());
