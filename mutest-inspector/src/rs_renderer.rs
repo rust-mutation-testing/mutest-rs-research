@@ -599,7 +599,7 @@ impl Renderer {
         let file_lines = self.source_files.get(path).unwrap();
         let mut file_conflicts = &self.mutations.get(path).unwrap()[..];
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
-        let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\">");
+        let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\"><div class=\"mutation-changer-nav\"><h2 class=\"window-title\">Mutation Changer</h2><button id=\"mutation-changer-close-btn\" class=\"nav-button\">X</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
@@ -683,7 +683,7 @@ impl Renderer {
             self.no_lines_rendered += 1;
         }
 
-        mutation_changer.push_str("</div>");
+        mutation_changer.push_str("</div></div>");
         html_out.push_str("</tbody></table></div>");
         html_out.push_str(&mutation_changer);
     }
