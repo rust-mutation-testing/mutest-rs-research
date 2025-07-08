@@ -89,25 +89,39 @@ impl Renderer {
         String::from(&source[0..start_index]) + replacement + &source[end_index..source.len()]
     }
 
+    fn get_detection_status_marker(line: &mut String, detection_status: &Option<DetectionStatus>) {
+        let status: &str = match detection_status {
+            None => "",
+            Some(DetectionStatus::Detected) => " detected",
+            Some(DetectionStatus::Undetected) => " undetected",
+            Some(DetectionStatus::Crashed) => " crashed",
+            Some(DetectionStatus::Timeout) => " timeout",
+        };
+        line.push_str("<div class=\"detection-status-marker");
+        line.push_str(status);
+        line.push_str("\">");
+        line.push_str(status);
+        line.push_str("</div>");
+    }
+
     // generates the opening <tr> tag for a table row and adds the appropriate row diff class
     // if necessary. also adds the empty old and new line numbers columns. due to line numbers
     // being dynamic when mutations are swapped into the main view, all line numbers will be
     // populated dynamically by javascript.
-    fn get_tr_open(line: &mut String, line_type: &DiffType, detection_status: &DetectionStatus, line_number: usize) {
+    fn get_tr_open(line: &mut String, line_type: &DiffType, detection_status: &Option<DetectionStatus>, line_number: usize) {
         line.push_str("<tr class=\"line-wrapper");
         match line_type {
             DiffType::Old => line.push_str(" delete"),
             DiffType::New => line.push_str(" insert"),
             DiffType::Unchanged => {}, // unchanged lines need no row diff highlight class
         }
-        line.push_str("\"><td class=\"detection-status\"><div class=\"detection-status-marker ");
-        match detection_status {
-            DetectionStatus::Detected => line.push_str("detected"),
-            DetectionStatus::Undetected => line.push_str("undetected"),
-            DetectionStatus::Crashed => line.push_str("crashed"),
-            DetectionStatus::Timeout => line.push_str("timeout"),
+        line.push_str("\"><td class=\"detection-status");
+        if line_number == 0 {
+            line.push_str(" new")
         }
-        line.push_str("\"></div></td><td class=\"numbers");
+        line.push_str("\">");
+        Self::get_detection_status_marker(line, detection_status);
+        line.push_str("</td><td class=\"numbers");
         if line_number != 0 {
             line.push_str("\">");
             line.push_str(&line_number.to_string());
@@ -156,11 +170,17 @@ impl Renderer {
         }
     }
 
-    fn render_mutation(&self, lines: Vec<Line>, html_out: &mut String) {
+    fn render_mutation(&self, lines: Vec<Line>, mutation: &Mutation, html_out: &mut String) {
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
 
+        let mut is_first_line = true;
         for line in lines {
-            Self::get_tr_open(html_out, &line.diff_type, &DetectionStatus::Undetected, line.number);
+            if is_first_line {
+                Self::get_tr_open(html_out, &line.diff_type, &mutation.detection_status, line.number);
+                is_first_line = false;
+            } else {
+                Self::get_tr_open(html_out, &line.diff_type, &None, line.number);
+            }
 
             html_out.push_str("<td class=\"line-content\">");
             for line_block in line.blocks {
@@ -542,7 +562,7 @@ impl Renderer {
                         },
                     }
 
-                    self.render_mutation(lines, &mut mutation_string);
+                    self.render_mutation(lines, &mutation, &mut mutation_string);
                     self.mutations_cache[mutation.mutation_id] = mutation_string;
                 }
             }
@@ -580,8 +600,8 @@ impl Renderer {
         let mut file_conflicts = &self.mutations.get(path).unwrap()[..];
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
         let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\">");
-        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: 100%;\"></colgroup>");
-        let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: 100%;\"></colgroup>");
+        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
+        let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
@@ -636,13 +656,16 @@ impl Renderer {
                         mutation_changer.push_str(&section_name);
                         mutation_changer.push_str("\" class=\"mutations\">");
                         for mutation in &conflict.mutations {
+                            mutation_changer.push_str("<div class=\"mutation-content-wrapper\">");
+                            mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>", mutation.mutation_id, &mutation.name));
+                            Self::get_detection_status_marker(&mut mutation_changer, &mutation.detection_status);
                             mutation_changer.push_str("<div class=\"mutation-wrapper\" data-target-class=\"");
                             mutation_changer.push_str(&section_name);
                             mutation_changer.push_str("\"><table class=\"no-status no-line-wrapper\">");
                             mutation_changer.push_str(&changer_columns);
                             mutation_changer.push_str("<tbody>");
                             mutation_changer.push_str(&self.mutations_cache[mutation.mutation_id]);
-                            mutation_changer.push_str("</tbody></table></div>");
+                            mutation_changer.push_str("</tbody></table></div></div>");
                         }
                         mutation_changer.push_str("</div>");
                     }
@@ -652,7 +675,7 @@ impl Renderer {
                 }
             }
 
-            Self::get_tr_open(html_out, &DiffType::Unchanged, &DetectionStatus::Undetected, i + 1);
+            Self::get_tr_open(html_out, &DiffType::Unchanged, &None, i + 1);
             html_out.push_str("<td class=\"line-content\">");
             self.highlight_line(&file_lines[i], html_out, &mut highlighter);
             html_out.push_str("</td>");

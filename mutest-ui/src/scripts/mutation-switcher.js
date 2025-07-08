@@ -1,8 +1,12 @@
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
-    [...document.getElementsByClassName('mutation-conflict-region')].map(e => {
+    let mcrs = [...document.getElementsByClassName('mutation-conflict-region')];
+
+    mcrs.map(e => {
         e.addEventListener('click', () => {
+            mcrs.map(_e => _e.classList.remove('selected'));
+            e.classList.add('selected');
             let changer = document.getElementById('changer');
             changer.classList.remove('hidden');
             [...changer.children].map(e => e.classList.add('hidden'));
@@ -15,9 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
         e.addEventListener('click', () => {
             let targetClass = e.getAttribute('data-target-class');
             let els = [...document.getElementsByClassName(targetClass)];
-            let index = [...document.getElementById(targetClass).children].indexOf(e);
+            console.log(targetClass);
+            let index = [...document.getElementById(targetClass).children].indexOf(e.parentNode);
+            console.log(index);
             els.map(e => e.classList.add('hidden'));
             els[index].classList.remove('hidden');
+            els[index].classList.add('selected');
         });
     });
 });
