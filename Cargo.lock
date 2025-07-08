@@ -590,6 +590,7 @@ dependencies = [
  "similar",
  "syntect",
  "uuid",
+ "walkdir",
 ]
 
 [[package]]

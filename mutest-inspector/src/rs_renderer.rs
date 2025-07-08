@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::thread::current;
 use std::time::Instant;
 use similar::{Algorithm, ChangeTag, TextDiff, TextDiffConfig};
 use syntect::easy::HighlightLines;
@@ -443,8 +444,23 @@ impl Renderer {
         }
     }
 
-    pub fn render_file(&mut self, path: &PathBuf) -> String {
-        let mut current_render = String::from("<!DOCTYPE html><html><link rel=\"stylesheet\" href=\"mutest-ui/src/styles/style.css\" /><script src=\"mutest-ui/src/scripts/mutation-switcher.js\"></script><head></head><body>");
+    pub fn render_file(&mut self, path: &PathBuf, path_depth: usize, styles: &Vec<PathBuf>, scripts: &Vec<PathBuf>) -> String {
+        let mut current_render = String::from("<!DOCTYPE html><html><head>");
+        let mut path_prefix = String::with_capacity(64);
+        
+        for _ in 0..path_depth {
+            path_prefix.push_str("../");
+        }
+        
+        for style in styles {
+            current_render.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", path_prefix, style.display()));
+        }
+        
+        for script in scripts {
+            current_render.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", path_prefix, script.display()));
+        }
+        
+        current_render.push_str("</head><body>");
         self.render_source_code(path, &mut current_render);
         current_render.push_str("</body></html>");
         current_render
