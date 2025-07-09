@@ -400,6 +400,7 @@ impl Renderer {
                         SysDiffType::Advanced => {
                             let diff = TextDiff::from_lines(&conflict_target, &replaced);
                             let changes: Vec<_> = diff.iter_all_changes().collect();
+                            let mut original_lines_counter = 0;
 
                             for (i, change) in changes.iter().enumerate() {
                                 match change.tag() {
@@ -411,9 +412,10 @@ impl Renderer {
                                             let word_diff = TextDiff::from_words(change.value(), insert_change.value());
                                             let mut line = Line {
                                                 diff_type: DiffType::Old,
-                                                number: conflict.start_line + i,
+                                                number: conflict.start_line + original_lines_counter,
                                                 blocks: vec![],
                                             };
+                                            original_lines_counter += 1;
 
                                             let mut inline_delete_value = String::new();
                                             let mut inline_unchange_value = String::new();
@@ -464,7 +466,7 @@ impl Renderer {
                                         } else {
                                             lines.push(Line {
                                                 diff_type: DiffType::Old,
-                                                number: conflict.start_line + i,
+                                                number: conflict.start_line + original_lines_counter,
                                                 blocks: vec![
                                                     LineBlock {
                                                         diff_type: DiffType::Unchanged,
@@ -472,6 +474,7 @@ impl Renderer {
                                                     }
                                                 ]
                                             });
+                                            original_lines_counter += 1;
                                         }
                                     }
                                     ChangeTag::Insert => {
@@ -548,7 +551,7 @@ impl Renderer {
                                     ChangeTag::Equal => {
                                         lines.push(Line {
                                             diff_type: DiffType::Unchanged,
-                                            number: conflict.start_line + i,
+                                            number: conflict.start_line + original_lines_counter,
                                             blocks: vec![
                                                 LineBlock {
                                                     diff_type: DiffType::Unchanged,
@@ -556,6 +559,7 @@ impl Renderer {
                                                 }
                                             ]
                                         });
+                                        original_lines_counter += 1;
                                     }
                                 }
                             }
