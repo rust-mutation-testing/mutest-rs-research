@@ -6,6 +6,7 @@ pub mod common;
 mod mutations;
 mod rs_renderer;
 mod files;
+mod file_tree;
 
 use std::fs::{create_dir_all, File};
 use std::fs;
@@ -149,6 +150,11 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     println!("[mutest-report] caching file tree...");
     let cache_file_tree_start = Instant::now();
     // TODO: cache the file tree
+    let mut ft = file_tree::FileTree::new();
+    for path in &_paths {
+        ft.insert_path(path);
+    }
+    ft.sort();
     let cache_file_tree_elapsed = cache_file_tree_start.elapsed();
 
     println!("[mutest-report] caching mutations...");
