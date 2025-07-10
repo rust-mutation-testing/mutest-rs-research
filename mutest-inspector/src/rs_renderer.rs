@@ -661,7 +661,7 @@ impl Renderer {
                         mutation_changer.push_str("\" class=\"mutations\">");
                         for mutation in &conflict.mutations {
                             mutation_changer.push_str("<div class=\"mutation-content-wrapper\">");
-                            mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>", mutation.mutation_id, &mutation.name));
+                            mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>", mutation.mutation_id, html_escape::encode_text(&mutation.name).as_ref()));
                             Self::get_detection_status_marker(&mut mutation_changer, &mutation.detection_status);
                             mutation_changer.push_str("<div class=\"mutation-wrapper\" data-target-class=\"");
                             mutation_changer.push_str(&section_name);
