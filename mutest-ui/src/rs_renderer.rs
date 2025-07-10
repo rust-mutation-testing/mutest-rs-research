@@ -166,16 +166,26 @@ impl Renderer {
         }
     }
 
+    fn inc_or_zero(n: usize) -> usize {
+        match n {
+            0 => 0,
+            _ => n + 1,
+        }
+    }
+
     fn render_mutation(&self, lines: Vec<Line>, mutation: &Mutation, html_out: &mut String) {
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
 
         let mut is_first_line = true;
+
+        // must add 1 to the line numbers as the line numbers are adapted in the Mutation type to
+        // be decremented once so that they can be used as indexes for the lines array.
         for line in lines {
             if is_first_line {
-                Self::get_tr_open(html_out, &line.diff_type, &mutation.detection_status, line.number);
+                Self::get_tr_open(html_out, &line.diff_type, &mutation.detection_status, Self::inc_or_zero(line.number));
                 is_first_line = false;
             } else {
-                Self::get_tr_open(html_out, &line.diff_type, &None, line.number);
+                Self::get_tr_open(html_out, &line.diff_type, &None, Self::inc_or_zero(line.number));
             }
 
             html_out.push_str("<td class=\"line-content\">");
@@ -604,11 +614,12 @@ impl Renderer {
     }
 
     fn render_file_tree(&self, html_out: &mut String) {
+        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div>");
         html_out.push_str("<ul class=\"file-tree\">");
         for node in self.file_tree.children() {
             self.render_file_tree_node(node, html_out);
         }
-        html_out.push_str("</ul>");
+        html_out.push_str("</ul></div>");
     }
 
     fn render_file_tree_node(&self, node: &file_tree::Node, html_out: &mut String) {
@@ -616,26 +627,32 @@ impl Renderer {
         // TODO: need to put some sort of link to allow users to open other files
         // TODO: need to add the mutations for each file as previews underneath that file...
         if node.is_folder() {
-            html_out.push_str("<li class=\"file-tree-section folder-element\">");
+            html_out.push_str("<li class=\"file-tree-element\">");
+            self.render_icon("chevron-right.png", html_out);
+            self.render_icon("chevron-down.png", html_out);
             if node.value() == "src" {
                 self.render_icon("folder-blue.png", html_out);
             } else {
                 self.render_icon("folder.png", html_out);
             }
             html_out.push_str(node.value());
-            html_out.push_str("<ul class=\"file-tree-section-content\">");
+            html_out.push_str("<ul class=\"file-tree\">");
             for child in node.children() {
                 self.render_file_tree_node(child, html_out);
             }
             html_out.push_str("</ul></li>");
             return;
         }
-        html_out.push_str(&format!("<li class=\"file-tree-section\">{}</li>", node.value()));
+        html_out.push_str("<li class=\"file-tree-section\">");
+        self.render_icon("ferris_64.png", html_out); // TODO: change based on how many mutations were detected
+        html_out.push_str(node.value());
+        html_out.push_str("</li>");
     }
 
     fn render_mutation_section_header(html_out: &mut String, conflict: &Conflict, i: i32) {
+        // line numbers need +1 to start from 1.
         html_out.push_str(&format!("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">{} of {} mutations in region [{}:{}], Click region to show all mutations</td></tr>",
-                                   i, &conflict.mutations.len(), conflict.start_line, conflict.end_line));
+                                   i, &conflict.mutations.len(), conflict.start_line + 1, conflict.end_line + 1));
     }
 
     fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
@@ -648,6 +665,7 @@ impl Renderer {
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
+        html_out.push_str("<div class=\"code-wrapper\"><div class=\"code-header\"></div>");
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
         html_out.push_str("<tbody>");
@@ -714,7 +732,7 @@ impl Renderer {
         }
 
         mutation_changer.push_str("</div></div>");
-        html_out.push_str("</tbody></table></div>");
+        html_out.push_str("</tbody></table></div></div>");
         html_out.push_str(&mutation_changer);
     }
 
