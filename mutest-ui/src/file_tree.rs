@@ -68,6 +68,14 @@ impl Node {
     pub fn is_folder(&self) -> bool {
         self.children.len() != 0
     }
+    
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+    
+    pub fn children(&self) -> &Vec<Node> {
+        &self.children
+    }
 }
 
 pub struct FileTree {
@@ -97,5 +105,9 @@ impl FileTree {
 
     pub fn sort(&mut self) {
         self.root_node.sort();
+    }
+
+    pub fn children(&self) -> &Vec<Node> {
+        &self.root_node.children
     }
 }

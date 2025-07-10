@@ -9,7 +9,7 @@ use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use uuid::Uuid;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{split_lines};
+use crate::{file_tree, split_lines};
 
 pub enum SysDiffType {
     Simple, // shows the line diff with simple double highlights for the entire mutation region
@@ -55,6 +55,7 @@ pub struct Renderer {
     syntax_ref: SyntaxReference,
     theme: Theme,
     no_lines_rendered: usize,
+    file_tree_cache: String,
 }
 
 impl Renderer {
@@ -73,6 +74,7 @@ impl Renderer {
             syntax_ref,
             theme: ThemeSet::load_from_folder("mutest-ui/src/assets/themes").unwrap().themes["Darcula"].clone(),
             no_lines_rendered: 0,
+            file_tree_cache: String::new(),
         }
     }
 
@@ -595,8 +597,31 @@ impl Renderer {
         current_render
     }
 
-    fn render_file_tree(&mut self, path: &PathBuf) {
-        // TODO: render the file tree based off of the
+    pub fn cache_file_tree(&mut self, ft: &file_tree::FileTree) {
+        self.file_tree_cache = String::from("<ul class=\"file-tree\">");
+        for node in ft.children() {
+            self.render_file_tree_node(node);
+        }
+        self.file_tree_cache.push_str("</ul>");
+    }
+
+    fn render_file_tree_node(&mut self, node: &file_tree::Node) {
+        // TODO: use some sort of --level variable to manually inject the indentation level into the elements through a style="--level=1" etc...
+        // TODO: need to put some sort of link to allow users to open other files
+        // TODO: need to add the mutations for each file as previews underneath that file...
+        if node.is_folder() {
+            self.file_tree_cache.push_str("<li class=\"file-tree-section folder-element\">");
+            self.file_tree_cache.push_str(node.value());
+            self.file_tree_cache.push_str("<ul class=\"file-tree-section-content\">");
+            for child in node.children() {
+                self.render_file_tree_node(child);
+            }
+            self.file_tree_cache.push_str("</ul></li>");
+            return;
+        }
+        self.file_tree_cache.push_str("<li class=\"file-tree-section\">");
+        self.file_tree_cache.push_str(node.value());
+        self.file_tree_cache.push_str("</li>");
     }
 
     fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
@@ -606,6 +631,8 @@ impl Renderer {
         let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\"><div class=\"mutation-changer-nav\"><h2 class=\"window-title\">Mutation Changer</h2><button id=\"mutation-changer-close-btn\" class=\"nav-button\">X</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
+
+        html_out.push_str(&self.file_tree_cache);
 
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
