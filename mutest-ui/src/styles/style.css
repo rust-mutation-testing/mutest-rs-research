@@ -274,8 +274,15 @@ table {
     font-weight: 500;
     font-size: 15px;
     cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 
     &:hover {
         background: var(--code-bg);
     }
+}
+
+.generic-icon {
+    width: 12px;
 }

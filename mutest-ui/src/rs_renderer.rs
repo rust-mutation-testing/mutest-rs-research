@@ -56,6 +56,9 @@ pub struct Renderer {
     theme: Theme,
     no_lines_rendered: usize,
     file_tree_cache: String,
+    styles: Vec<PathBuf>,
+    scripts: Vec<PathBuf>,
+    icons: HashMap<String, PathBuf>,
 }
 
 impl Renderer {
@@ -75,7 +78,31 @@ impl Renderer {
             theme: ThemeSet::load_from_folder("mutest-ui/src/assets/themes").unwrap().themes["Darcula"].clone(),
             no_lines_rendered: 0,
             file_tree_cache: String::new(),
+            styles: Vec::new(),
+            scripts: Vec::new(),
+            icons: HashMap::new(),
         }
+    }
+
+    pub fn attach_styles(&mut self, styles: Vec<PathBuf>) {
+        self.styles = styles;
+    }
+
+    pub fn attach_scripts(&mut self, scripts: Vec<PathBuf>) {
+        self.scripts = scripts;
+    }
+
+    pub fn attach_icons(&mut self, icons: HashMap<String, PathBuf>) {
+        self.icons = icons;
+    }
+
+    fn render_icon(&self, icon_name: &str, internal_path_prefix: &String, html_out: &mut String) {
+        html_out.push_str("<img class=\"generic-icon\" src=\"");
+        html_out.push_str(internal_path_prefix);
+        html_out.push_str(&self.icons[icon_name].display().to_string());
+        html_out.push_str("\" alt=\"");
+        html_out.push_str(&icon_name);
+        html_out.push_str("\" />");
     }
 
     fn calc_char_offset(range: &Range, conflict: &Conflict, lines: &Vec<String>) -> usize {
@@ -575,24 +602,24 @@ impl Renderer {
         }
     }
 
-    pub fn render_file(&mut self, path: &PathBuf, path_depth: usize, styles: &Vec<PathBuf>, scripts: &Vec<PathBuf>) -> String {
+    pub fn render_file(&mut self, path: &PathBuf, path_depth: usize) -> String {
         let mut current_render = String::from("<!DOCTYPE html><html><head>");
-        let mut path_prefix = String::with_capacity(64);
+        let mut internal_path_prefix = String::with_capacity(64);
 
         for _ in 0..path_depth {
-            path_prefix.push_str("../");
+            internal_path_prefix.push_str("../");
         }
 
-        for style in styles {
-            current_render.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", path_prefix, style.display()));
+        for style in &self.styles {
+            current_render.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", internal_path_prefix, style.display()));
         }
 
-        for script in scripts {
-            current_render.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", path_prefix, script.display()));
+        for script in &self.scripts {
+            current_render.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", internal_path_prefix, script.display()));
         }
 
         current_render.push_str("</head><body>");
-        self.render_source_code(path, &mut current_render);
+        self.render_source_code(path, &internal_path_prefix, &mut current_render);
         current_render.push_str("</body></html>");
         current_render
     }
@@ -624,11 +651,13 @@ impl Renderer {
         self.file_tree_cache.push_str("</li>");
     }
 
-    fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
+    fn render_source_code(&mut self, path: &PathBuf, internal_path_prefix: &String, html_out: &mut String) {
         let file_lines = self.source_files.get(path).unwrap();
         let mut file_conflicts = &self.mutations.get(path).unwrap()[..];
         let mut highlighter = HighlightLines::new(&self.syntax_ref, &self.theme);
-        let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\"><div class=\"mutation-changer-nav\"><h2 class=\"window-title\">Mutation Changer</h2><button id=\"mutation-changer-close-btn\" class=\"nav-button\">X</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
+        let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\"><div class=\"mutation-changer-nav\"><h2 class=\"window-title\">Mutation Changer</h2><button id=\"mutation-changer-close-btn\" class=\"nav-button\">");
+        self.render_icon("x-mark.png", internal_path_prefix, &mut mutation_changer);
+        mutation_changer.push_str("</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
