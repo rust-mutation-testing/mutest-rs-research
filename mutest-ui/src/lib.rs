@@ -149,12 +149,12 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
 
     println!("[mutest-report] caching file tree...");
     let cache_file_tree_start = Instant::now();
-    // TODO: cache the file tree
     let mut ft = file_tree::FileTree::new();
     for path in &_paths {
         ft.insert_path(path);
     }
     ft.sort();
+    renderer.cache_file_tree(&ft);
     let cache_file_tree_elapsed = cache_file_tree_start.elapsed();
 
     println!("[mutest-report] caching mutations...");
