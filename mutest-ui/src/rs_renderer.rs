@@ -100,16 +100,12 @@ impl Renderer {
     fn get_detection_status_marker(line: &mut String, detection_status: &Option<DetectionStatus>) {
         let status: &str = match detection_status {
             None => "",
-            Some(DetectionStatus::Detected) => " detected",
-            Some(DetectionStatus::Undetected) => " undetected",
-            Some(DetectionStatus::Crashed) => " crashed",
-            Some(DetectionStatus::Timeout) => " timeout",
+            Some(DetectionStatus::Detected) => "detected",
+            Some(DetectionStatus::Undetected) => "undetected",
+            Some(DetectionStatus::Crashed) => "crashed",
+            Some(DetectionStatus::Timeout) => "timeout",
         };
-        line.push_str("<div class=\"detection-status-marker");
-        line.push_str(status);
-        line.push_str("\">");
-        line.push_str(status);
-        line.push_str("</div>");
+        line.push_str(&format!("<div class=\"detection-status-marker {0}\">{0}</div>", status));
     }
 
     // generates the opening <tr> tag for a table row and adds the appropriate row diff class
@@ -145,15 +141,7 @@ impl Renderer {
 
     fn highlight(style: Style, text: &str, html_out: &mut String) {
         let rgb = style.foreground;
-        html_out.push_str("<span style=\"color: rgb(");
-        html_out.push_str(&rgb.r.to_string());
-        html_out.push(',');
-        html_out.push_str(&rgb.g.to_string());
-        html_out.push(',');
-        html_out.push_str(&rgb.b.to_string());
-        html_out.push_str(")\">");
-        html_out.push_str(html_escape::encode_text(text).as_ref());
-        html_out.push_str("</span>");
+        html_out.push_str(&format!("<span style=\"color: rgb({},{},{})\">{}</span>", rgb.r, rgb.g, rgb.b, html_escape::encode_text(text).as_ref()));
     }
 
     fn highlight_block(&self, line_block: &LineBlock, html_out: &mut String, highlighter: &mut HighlightLines) {
@@ -610,7 +598,7 @@ impl Renderer {
         self.render_source_code(path, html_out);
         html_out.push_str("</body>");
     }
-    
+
     pub fn cache_file_tree(&mut self, ft: file_tree::FileTree) {
         self.file_tree = ft;
     }
@@ -642,9 +630,12 @@ impl Renderer {
             html_out.push_str("</ul></li>");
             return;
         }
-        html_out.push_str("<li class=\"file-tree-section\">");
-        html_out.push_str(node.value());
-        html_out.push_str("</li>");
+        html_out.push_str(&format!("<li class=\"file-tree-section\">{}</li>", node.value()));
+    }
+
+    fn render_mutation_section_header(html_out: &mut String, conflict: &Conflict, i: i32) {
+        html_out.push_str(&format!("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">{} of {} mutations in region [{}:{}], Click region to show all mutations</td></tr>",
+                                   i, &conflict.mutations.len(), conflict.start_line, conflict.end_line));
     }
 
     fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
@@ -675,11 +666,7 @@ impl Renderer {
                     }
                     html_out.push_str("\">");
                     if conflict.mutations.len() > 1 {
-                        html_out.push_str("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">1 of ");
-                        html_out.push_str(&conflict.mutations.len().to_string());
-                        html_out.push_str(" mutations in region [");
-                        html_out.push_str(&format!("{}:{}", conflict.start_line, conflict.end_line));
-                        html_out.push_str("], Click region to show all mutations</td></tr>");
+                        Self::render_mutation_section_header(html_out, conflict, 1);
                     }
                     html_out.push_str(&self.mutations_cache[conflict.mutations.first().unwrap().mutation_id]);
                     html_out.push_str("</tbody>");
@@ -690,14 +677,7 @@ impl Renderer {
                             html_out.push_str(&section_name);
                             html_out.push_str(" mutation-conflict-region hidden\">");
 
-                            // TODO: refactor this into a function, identical code used earlier
-                            html_out.push_str("<tr><td colspan=\"3\" class=\"mutation-conflict-header\">");
-                            html_out.push_str(&i.to_string());
-                            html_out.push_str(" of ");
-                            html_out.push_str(&conflict.mutations.len().to_string());
-                            html_out.push_str(" mutations in region [");
-                            html_out.push_str(&format!("{}:{}", conflict.start_line, conflict.end_line));
-                            html_out.push_str("], Click region to show all mutations</td></tr>");
+                            Self::render_mutation_section_header(html_out, conflict, i);
 
                             html_out.push_str(&self.mutations_cache[mutation.mutation_id]);
                             html_out.push_str("</tbody>");
@@ -711,15 +691,11 @@ impl Renderer {
                         mutation_changer.push_str("\" class=\"mutations\">");
                         for mutation in &conflict.mutations {
                             mutation_changer.push_str("<div class=\"mutation-content-wrapper\">");
-                            mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>", mutation.mutation_id, html_escape::encode_text(&mutation.name).as_ref()));
+                            mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>",
+                                                               mutation.mutation_id, html_escape::encode_text(&mutation.name).as_ref()));
                             Self::get_detection_status_marker(&mut mutation_changer, &mutation.detection_status);
-                            mutation_changer.push_str("<div class=\"mutation-wrapper\" data-target-class=\"");
-                            mutation_changer.push_str(&section_name);
-                            mutation_changer.push_str("\"><table class=\"no-status no-line-wrapper\">");
-                            mutation_changer.push_str(&changer_columns);
-                            mutation_changer.push_str("<tbody>");
-                            mutation_changer.push_str(&self.mutations_cache[mutation.mutation_id]);
-                            mutation_changer.push_str("</tbody></table></div></div>");
+                            mutation_changer.push_str(&format!("<div class=\"mutation-wrapper\" data-target-class=\"{}\"><table class=\"no-status no-line-wrapper\">{}<tbody>{}</tbody></table></div></div>",
+                                                               &section_name, &changer_columns, &self.mutations_cache[mutation.mutation_id]));
                         }
                         mutation_changer.push_str("</div>");
                     }
