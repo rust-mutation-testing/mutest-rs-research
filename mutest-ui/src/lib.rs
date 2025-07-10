@@ -82,27 +82,24 @@ fn explore_directory(target_directory: &PathBuf) -> Vec<PathBuf> {
     files
 }
 
+fn cp_files(report_root_dir: &PathBuf, moved_root: &str, files: &Vec<PathBuf>, moved_files: &mut Vec<PathBuf>) {
+    let moved_root_path = PathBuf::from(report_root_dir).join(moved_root);
+    create_dir_all(&moved_root_path);
+    for file in files {
+        let new_style_path = PathBuf::from(&moved_root_path).join(file.file_name().unwrap());
+        fs::copy(&file, &new_style_path);
+        moved_files.push(new_style_path);
+    }
+}
+
 fn cp_scripts_and_styles(target_report_dir: &PathBuf) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let styles = explore_directory(&PathBuf::from("mutest-ui/src/styles"));
     let scripts = explore_directory(&PathBuf::from("mutest-ui/src/scripts"));
     let mut moved_styles: Vec<PathBuf> = Vec::new();
     let mut moved_scripts: Vec<PathBuf> = Vec::new();
 
-    let styles_path = PathBuf::from(target_report_dir).join("__mutest_report_assets/styles");
-    create_dir_all(&styles_path);
-    for style in &styles {
-        let new_style_path = PathBuf::from(&styles_path).join(style.file_name().unwrap());
-        fs::copy(&style, &new_style_path);
-        moved_styles.push(new_style_path);
-    }
-
-    let scripts_path = PathBuf::from(target_report_dir).join("__mutest_report_assets/scripts");
-    create_dir_all(&scripts_path);
-    for script in &scripts {
-        let new_script_path = PathBuf::from(&scripts_path).join(script.file_name().unwrap());
-        fs::copy(&script, &new_script_path);
-        moved_scripts.push(new_script_path);
-    }
+    cp_files(target_report_dir, "__mutest_report_assets/styles", &styles, &mut moved_styles);
+    cp_files(target_report_dir, "__mutest_report_assets/scripts", &scripts, &mut moved_scripts);
 
     (moved_styles, moved_scripts)
 }
