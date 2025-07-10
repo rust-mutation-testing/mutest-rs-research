@@ -183,11 +183,7 @@ table {
     }
 
     &.selected {
-        border: solid 3px var(--conflict-region-selected-color);
-
-        & .mutation-conflict-header {
-            background: var(--conflict-region-selected-color);
-        }
+        --conflict-region-color: var(--conflict-region-selected-color);
     }
 }
 
