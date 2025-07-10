@@ -155,7 +155,7 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
         ft.insert_path(path);
     }
     ft.sort();
-    renderer.cache_file_tree(&ft);
+    renderer.cache_file_tree(ft);
     let cache_file_tree_elapsed = cache_file_tree_start.elapsed();
 
     println!("[mutest-report] caching mutations...");

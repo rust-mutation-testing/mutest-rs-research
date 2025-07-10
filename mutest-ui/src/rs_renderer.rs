@@ -55,7 +55,7 @@ pub struct Renderer {
     syntax_ref: SyntaxReference,
     theme: Theme,
     no_lines_rendered: usize,
-    file_tree_cache: String,
+    file_tree: file_tree::FileTree,
     internal_path_prefix: String,
 }
 
@@ -75,7 +75,7 @@ impl Renderer {
             syntax_ref,
             theme: ThemeSet::load_from_folder("mutest-ui/src/assets/themes").unwrap().themes["Darcula"].clone(), // TODO: localise
             no_lines_rendered: 0,
-            file_tree_cache: String::new(),
+            file_tree: file_tree::FileTree::new(),
             internal_path_prefix: String::new(),
         }
     }
@@ -606,35 +606,45 @@ impl Renderer {
 
     fn write_source_code_file_page_body(&mut self, path: &PathBuf, html_out: &mut String) {
         html_out.push_str("<body>");
+        self.render_file_tree(html_out);
         self.render_source_code(path, html_out);
         html_out.push_str("</body>");
     }
-
-    pub fn cache_file_tree(&mut self, ft: &file_tree::FileTree) {
-        self.file_tree_cache = String::from("<ul class=\"file-tree\">");
-        for node in ft.children() {
-            self.render_file_tree_node(node);
-        }
-        self.file_tree_cache.push_str("</ul>");
+    
+    pub fn cache_file_tree(&mut self, ft: file_tree::FileTree) {
+        self.file_tree = ft;
     }
 
-    fn render_file_tree_node(&mut self, node: &file_tree::Node) {
+    fn render_file_tree(&self, html_out: &mut String) {
+        html_out.push_str("<ul class=\"file-tree\">");
+        for node in self.file_tree.children() {
+            self.render_file_tree_node(node, html_out);
+        }
+        html_out.push_str("</ul>");
+    }
+
+    fn render_file_tree_node(&self, node: &file_tree::Node, html_out: &mut String) {
         // TODO: use some sort of --level variable to manually inject the indentation level into the elements through a style="--level=1" etc...
         // TODO: need to put some sort of link to allow users to open other files
         // TODO: need to add the mutations for each file as previews underneath that file...
         if node.is_folder() {
-            self.file_tree_cache.push_str("<li class=\"file-tree-section folder-element\">");
-            self.file_tree_cache.push_str(node.value());
-            self.file_tree_cache.push_str("<ul class=\"file-tree-section-content\">");
-            for child in node.children() {
-                self.render_file_tree_node(child);
+            html_out.push_str("<li class=\"file-tree-section folder-element\">");
+            if node.value() == "src" {
+                self.render_icon("folder-blue.png", html_out);
+            } else {
+                self.render_icon("folder.png", html_out);
             }
-            self.file_tree_cache.push_str("</ul></li>");
+            html_out.push_str(node.value());
+            html_out.push_str("<ul class=\"file-tree-section-content\">");
+            for child in node.children() {
+                self.render_file_tree_node(child, html_out);
+            }
+            html_out.push_str("</ul></li>");
             return;
         }
-        self.file_tree_cache.push_str("<li class=\"file-tree-section\">");
-        self.file_tree_cache.push_str(node.value());
-        self.file_tree_cache.push_str("</li>");
+        html_out.push_str("<li class=\"file-tree-section\">");
+        html_out.push_str(node.value());
+        html_out.push_str("</li>");
     }
 
     fn render_source_code(&mut self, path: &PathBuf, html_out: &mut String) {
@@ -646,8 +656,6 @@ impl Renderer {
         mutation_changer.push_str("</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
-
-        html_out.push_str(&self.file_tree_cache);
 
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
