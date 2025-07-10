@@ -8,8 +8,9 @@ mod rs_renderer;
 mod files;
 mod file_tree;
 
+use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
-use std::fs;
+use std::{env, fs};
 use std::io::{BufReader};
 use std::path::{Component, PathBuf};
 use std::process::exit;
@@ -92,16 +93,42 @@ fn cp_files(report_root_dir: &PathBuf, moved_root: &str, files: &Vec<PathBuf>, m
     }
 }
 
-fn cp_scripts_and_styles(target_report_dir: &PathBuf) -> (Vec<PathBuf>, Vec<PathBuf>) {
-    let styles = explore_directory(&PathBuf::from("mutest-ui/src/styles"));
-    let scripts = explore_directory(&PathBuf::from("mutest-ui/src/scripts"));
+fn asset_dir(dir_name: &str) -> String {
+    format!("__mutest_report_assets/{}", dir_name)
+}
+
+fn with_res_dir(dir: &str) -> PathBuf {
+    match env::var("MUTEST_RESOURCE_DIR") {
+        Ok(res_dir) => PathBuf::from(res_dir).join(dir),
+        Err(e) => PathBuf::from(dir),
+    }
+}
+
+fn cp_styles(target_report_dir: &PathBuf) -> Vec<PathBuf> {
+    let styles = explore_directory(&with_res_dir("styles"));
     let mut moved_styles: Vec<PathBuf> = Vec::new();
+    cp_files(target_report_dir, &asset_dir("styles"), &styles, &mut moved_styles);
+    moved_styles
+}
+
+fn cp_scripts(target_report_dir: &PathBuf) -> Vec<PathBuf> {
+    let scripts = explore_directory(&with_res_dir("scripts"));
     let mut moved_scripts: Vec<PathBuf> = Vec::new();
+    cp_files(target_report_dir, &asset_dir("scripts"), &scripts, &mut moved_scripts);
+    moved_scripts
+}
 
-    cp_files(target_report_dir, "__mutest_report_assets/styles", &styles, &mut moved_styles);
-    cp_files(target_report_dir, "__mutest_report_assets/scripts", &scripts, &mut moved_scripts);
+fn cp_icons(target_report_dir: &PathBuf) -> HashMap<String, PathBuf> {
+    let icons = explore_directory(&with_res_dir("assets/icons"));
+    let mut moved_icons: Vec<PathBuf> = Vec::new();
+    cp_files(target_report_dir, &asset_dir("icons"), &icons, &mut moved_icons);
+    let mut hashed_icons: HashMap<String, PathBuf> = HashMap::new();
 
-    (moved_styles, moved_scripts)
+    for icon in moved_icons {
+        hashed_icons.insert(icon.file_name().unwrap().display().to_string(), icon);
+    }
+
+    hashed_icons
 }
 
 fn path_depth(path: &PathBuf) -> usize {
@@ -161,14 +188,17 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
 
     println!("[mutest-report] copying assets...");
     let copy_assets_start = Instant::now();
-    let (style_paths, script_paths) = cp_scripts_and_styles(&PathBuf::from("mutest/report"));
+    let report_path = PathBuf::from("mutest/report");
+    renderer.attach_styles(cp_styles(&export_path));
+    renderer.attach_scripts(cp_scripts(&export_path));
+    renderer.attach_icons(cp_icons(&export_path));
     let copy_assets_elapsed = copy_assets_start.elapsed();
 
     println!("[mutest-report] beginning render process...");
     let render_start = Instant::now();
     for path in _paths {
         let depth = path_depth(&path) + 1;
-        let file = renderer.render_file(&path, depth, &style_paths, &script_paths);
+        let file = renderer.render_file(&path, depth);
         let mut fpath = PathBuf::from("mutest/report").join(path);
         fpath.set_extension("rs.html");
         create_dir_all(&fpath.parent().unwrap());
