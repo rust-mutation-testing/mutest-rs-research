@@ -81,7 +81,12 @@ impl Renderer {
     }
 
     fn render_icon(&self, icon_name: &str, html_out: &mut String) {
-        html_out.push_str(&format!("<img class=\"generic-icon\" src=\"{}{}{}\" alt=\"\" />", self.internal_path_prefix, crate::asset_dir("icons/"), icon_name));
+        self.render_icon_with_class_list(icon_name, html_out, "");
+    }
+
+    fn render_icon_with_class_list(&self, icon_name: &str, html_out: &mut String, class_list: &str) {
+        html_out.push_str(&format!("<img class=\"generic-icon {}\" src=\"{}{}{}\" alt=\"\" />",
+                                   class_list, self.internal_path_prefix, crate::asset_dir("icons/"), icon_name));
     }
 
     fn calc_char_offset(range: &Range, conflict: &Conflict, lines: &Vec<String>) -> usize {
@@ -599,6 +604,7 @@ impl Renderer {
         html_out.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", self.internal_path_prefix, crate::asset_dir("styles/style.css")));
         html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/code-collapser.js")));
         html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/mutation-switcher.js")));
+        html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/file-tree.js")));
         html_out.push_str("</head>");
     }
 
@@ -614,38 +620,54 @@ impl Renderer {
     }
 
     fn render_file_tree(&self, html_out: &mut String) {
-        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div>");
-        html_out.push_str("<ul class=\"file-tree\">");
+        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul class=\"file-tree\">");
         for node in self.file_tree.children() {
-            self.render_file_tree_node(node, html_out);
+            self.render_file_tree_node(node, html_out, 0, &self.internal_path_prefix);
         }
-        html_out.push_str("</ul></div>");
+        html_out.push_str("</ul></div></div>");
     }
 
-    fn render_file_tree_node(&self, node: &file_tree::Node, html_out: &mut String) {
-        // TODO: use some sort of --level variable to manually inject the indentation level into the elements through a style="--level=1" etc...
-        // TODO: need to put some sort of link to allow users to open other files
-        // TODO: need to add the mutations for each file as previews underneath that file...
+    fn render_file_tree_node(&self, node: &file_tree::Node, html_out: &mut String, indentation_level: usize, current_path_str: &str) {
+        let mut exp = "";
         if node.is_folder() {
-            html_out.push_str("<li class=\"file-tree-element\">");
-            self.render_icon("chevron-right.png", html_out);
-            self.render_icon("chevron-down.png", html_out);
-            if node.value() == "src" {
-                self.render_icon("folder-blue.png", html_out);
-            } else {
-                self.render_icon("folder.png", html_out);
+            exp = "expanded"
+        }
+        html_out.push_str(&format!("<li class=\"ft-node {}\"><div style=\"--level:{};\" class=\"node-content-wrapper\"><button class=\"toggle\">", exp, indentation_level));
+        self.render_icon_with_class_list("chevron-right.png", html_out, "collapsed");
+        self.render_icon_with_class_list("chevron-down.png", html_out, "expanded");
+        html_out.push_str("</button>");
+
+        html_out.push_str("<div class=\"node-value-wrapper");
+        if !node.is_folder() {
+            html_out.push_str(&format!(" file\" data-file-name=\"{}{}.html", current_path_str, node.value()));
+        }
+        html_out.push_str("\">");
+
+        html_out.push_str("<div class=\"node-icon\">");
+        if node.is_folder() {
+            match node.value() {
+                "src" => self.render_icon("folder-blue.png", html_out),
+                _ => self.render_icon("folder.png", html_out),
             }
-            html_out.push_str(node.value());
+        } else {
+            self.render_icon("ferris_64.png", html_out) // TODO: change based on how many mutations were detected
+        }
+        html_out.push_str("</div>");
+
+        html_out.push_str("<div class=\"node-value\">");
+        html_out.push_str(node.value());
+        html_out.push_str("</div></div></div>");
+
+        if node.is_folder() {
             html_out.push_str("<ul class=\"file-tree\">");
             for child in node.children() {
-                self.render_file_tree_node(child, html_out);
+                self.render_file_tree_node(child, html_out, indentation_level + 1, &format!("{}{}/", current_path_str, node.value()));
             }
-            html_out.push_str("</ul></li>");
-            return;
+            html_out.push_str("</ul>");
+        } else {
+            // TODO: render mutations here
         }
-        html_out.push_str("<li class=\"file-tree-section\">");
-        self.render_icon("ferris_64.png", html_out); // TODO: change based on how many mutations were detected
-        html_out.push_str(node.value());
+
         html_out.push_str("</li>");
     }
 
@@ -665,7 +687,11 @@ impl Renderer {
         let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
-        html_out.push_str("<div class=\"code-wrapper\"><div class=\"code-header\"></div>");
+        html_out.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
+        html_out.push_str("<div class=\"file-name\">");
+        self.render_icon("ferris_64.png", html_out);
+        html_out.push_str(&format!("{}</div>", path.file_name().unwrap().display().to_string()));
+        html_out.push_str("</div>");
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
         html_out.push_str("<tbody>");
