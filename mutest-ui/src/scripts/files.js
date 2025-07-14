@@ -5,7 +5,7 @@ import { Query } from "./query.js";
  * @param {string} filePath
  * @param {Query} query
  */
-function openFile(filePath, query) {
+function openFile(filePath, query = new Query('')) {
     window.open(`${filePath}?${query.toString()}`, '_self');
 }
 
