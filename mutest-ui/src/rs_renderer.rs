@@ -725,7 +725,7 @@ impl Renderer {
                 if conflict.start_line == i {
                     for _ in conflict.start_line..conflict.end_line { file_lines_iter.next(); }
                     let section_name = format!("conflict-{}", Uuid::new_v4());
-                    html_out.push_str(&format!("<tbody id=\"{}\" class=\"{}", conflict.mutations[0].mutation_id, &section_name));
+                    html_out.push_str(&format!("<tbody id=\"{}\" class=\"{} mutation-region", conflict.mutations[0].mutation_id, &section_name));
                     if conflict.mutations.len() > 1 {
                         html_out.push_str(" mutation-conflict-region");
                     }
