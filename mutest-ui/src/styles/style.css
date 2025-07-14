@@ -364,7 +364,7 @@ table {
         width: 100%;
 
         & > table {
-            min-width: 800px;
+            min-width: max-content;
         }
     }
 }

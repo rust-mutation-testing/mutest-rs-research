@@ -48,7 +48,7 @@ class MutationSwitcher {
 
     showMutationInCode(e) {
         hideMutationsWithClassName(e.getAttribute('data-target-class'));
-        openMutation(e.getAttribute('data-mutation-id'));
+        openMutation(e.getAttribute('data-mutation-id'), "", false);
     }
 
     init() {
