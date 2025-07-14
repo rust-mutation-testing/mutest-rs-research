@@ -1,6 +1,7 @@
 import { FileTree } from "./file-tree.js";
 import { MutationSwitcher } from "./mutation-switcher.js";
 import { collapse } from "./collapser.js";
+import { openQueryMutation } from "./mutations.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     let ft = new FileTree(
@@ -15,4 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
     ms.init();
 
     collapse();
+
+    openQueryMutation();
 });

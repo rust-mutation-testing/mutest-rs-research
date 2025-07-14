@@ -1,9 +1,12 @@
 import { openFile } from "./files.js";
+import { Query } from "./query.js";
+
+const MUTATION_ID_ATTR = 'mutation_id';
 
 /**
  * either shows a mutation inline with the code in the current file, or opens the file that contains the mutation,
  * and shows it.
- * @param {number} mutationId
+ * @param {string} mutationId
  * @param {string} filePath
  */
 function openMutation(mutationId, filePath = "") {
@@ -19,7 +22,9 @@ function openMutation(mutationId, filePath = "") {
         el.scrollIntoView();
     } catch (e) {
         console.info(`mutation ${mutationId} not in current file, opening new file`);
-        openFile(filePath, { "mutation_id": mutationId });
+        let query = new Query('');
+        query.setAttribute(MUTATION_ID_ATTR, mutationId);
+        openFile(filePath, query);
     }
 }
 
@@ -27,4 +32,11 @@ function hideMutationsWithClassName(className) {
     [...document.getElementsByClassName(className)].map(e => e.classList.add('hidden'));
 }
 
-export { openMutation, hideMutationsWithClassName };
+function openQueryMutation() {
+    let query = new Query(Query.queryString());
+    if (query.getAttribute(MUTATION_ID_ATTR) !== undefined) {
+        openMutation(query.getAttribute(MUTATION_ID_ATTR))
+    }
+}
+
+export { openMutation, hideMutationsWithClassName, openQueryMutation };

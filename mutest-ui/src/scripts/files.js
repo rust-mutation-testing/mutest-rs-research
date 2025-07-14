@@ -1,14 +1,12 @@
+import { Query } from "./query.js";
+
 /**
  * opens a file path with a query string
  * @param {string} filePath
- * @param {Object} params
+ * @param {Query} query
  */
-function openFile(filePath, params = {}) {
-    let formattedParams = [];
-    for (let key in Object.keys(params)) {
-        formattedParams.push(`${key}=${params[key]}`);
-    }
-    window.open(`${filePath}?${formattedParams.join('&')}`, '_self');
+function openFile(filePath, query = new Query('')) {
+    window.open(`${filePath}?${query.toString()}`, '_self');
 }
 
 export { openFile };

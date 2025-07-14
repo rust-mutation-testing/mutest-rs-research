@@ -34,8 +34,8 @@ class FileTree {
      * @returns {string}
      */
     mutationFilePath(e) {
-        return [...e.parentElement.parentElement.getElementsByClassName('node-value-wrapper')][0]
-            .getAttribute('data-file-path');
+        return [...e.parentElement.parentElement.getElementsByClassName('file')][0]
+            .getAttribute('data-file-name');
     }
 
     init() {
