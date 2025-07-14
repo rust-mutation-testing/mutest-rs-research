@@ -340,6 +340,10 @@ table {
     flex-shrink: 0;
     border-right: solid 1px var(--border-color);
 
+    &.hidden {
+        display: none;
+    }
+
     & > .file-tree-header {
         height: var(--nav-height);
         border-bottom: solid 1px var(--border-color);

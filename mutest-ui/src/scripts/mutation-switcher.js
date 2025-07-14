@@ -1,6 +1,8 @@
 import { FileTree } from "./file-tree.js";
 import { openMutation, hideMutationsWithClassName } from "./mutations.js";
 
+const SMALL_SCREEN_MAX_WIDTH = 1300;
+
 class MutationSwitcher {
 
     /**
@@ -17,6 +19,9 @@ class MutationSwitcher {
     }
 
     show() {
+        if (window.innerWidth <= SMALL_SCREEN_MAX_WIDTH) {
+            this.ft.hide();
+        }
         this.el.classList.remove('hidden');
     }
 

@@ -625,7 +625,7 @@ impl Renderer {
     }
 
     fn render_file_tree(&self, html_out: &mut String) {
-        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
+        html_out.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
         for node in self.file_tree.children() {
             self.render_file_tree_node(node, html_out, 0, &self.internal_path_prefix);
         }

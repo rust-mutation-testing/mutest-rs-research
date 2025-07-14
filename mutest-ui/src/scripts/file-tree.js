@@ -15,16 +15,17 @@ function fileNodeToggle(fileNodeToggleElement) {
 }
 
 class FileTree {
-    constructor(fileTreeElement) {
+    constructor(fileTreeWrapperElement, fileTreeElement) {
+        this.wrapper = fileTreeWrapperElement;
         this.el = fileTreeElement;
     }
 
     show() {
-        this.el.classList.add('hidden');
+        this.wrapper.classList.remove('hidden');
     }
 
     hide() {
-        this.el.classList.remove('hidden');
+        this.wrapper.classList.add('hidden');
     }
 
     /**
