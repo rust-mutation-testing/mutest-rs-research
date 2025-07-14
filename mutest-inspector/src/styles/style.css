@@ -146,6 +146,30 @@ table {
     }
 }
 
+.mutation-region.selected {
+    & tr {
+        & td:first-child {
+            border-left: solid 2px var(--conflict-region-selected-color);
+        }
+
+        & td:last-child {
+            border-right: solid 2px var(--conflict-region-selected-color);
+        }
+    }
+
+    & tr:first-child {
+        & td {
+            border-top: solid 2px var(--conflict-region-selected-color);
+        }
+    }
+
+    & tr:last-child {
+        & td {
+            border-bottom: solid 2px var(--conflict-region-selected-color);
+        }
+    }
+}
+
 .mutation-conflict-region {
     & .mutation-conflict-header {
         background: var(--conflict-region-color);
