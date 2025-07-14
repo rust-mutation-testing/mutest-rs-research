@@ -102,15 +102,22 @@ impl Renderer {
         String::from(&source[0..start_index]) + replacement + &source[end_index..source.len()]
     }
 
-    fn get_detection_status_marker(line: &mut String, detection_status: &Option<DetectionStatus>) {
-        let status: &str = match detection_status {
+    fn get_detection_status(detection_status: &Option<DetectionStatus>) -> &str {
+        match detection_status {
             None => "",
             Some(DetectionStatus::Detected) => "detected",
             Some(DetectionStatus::Undetected) => "undetected",
             Some(DetectionStatus::Crashed) => "crashed",
             Some(DetectionStatus::Timeout) => "timeout",
-        };
-        line.push_str(&format!("<div class=\"detection-status-marker {0}\">{0}</div>", status));
+        }
+    }
+
+    fn get_detection_status_marker(html_out: &mut String, detection_status: &Option<DetectionStatus>) {
+        html_out.push_str(&format!("<div class=\"detection-status-marker {0}\">{0}</div>", Self::get_detection_status(detection_status)));
+    }
+
+    fn get_detection_status_mini_marker(html_out: &mut String, detection_status: &Option<DetectionStatus>) {
+        html_out.push_str(&format!("<div class=\"detection-status-marker mini {}\"></div>", Self::get_detection_status(detection_status)));
     }
 
     // generates the opening <tr> tag for a table row and adds the appropriate row diff class
@@ -650,13 +657,20 @@ impl Renderer {
                 _ => self.render_icon("folder.png", html_out),
             }
         } else {
-            self.render_icon("ferris_64.png", html_out) // TODO: change based on how many mutations were detected
+            self.render_icon("ferris_worried_64.png", html_out) // TODO: change based on how many mutations were detected
         }
         html_out.push_str("</div>");
 
         html_out.push_str("<div class=\"node-value\">");
         html_out.push_str(node.value());
-        html_out.push_str("</div></div></div>");
+        html_out.push_str("</div>");
+        if !node.is_folder() {
+            let path = PathBuf::from(format!("{}{}", current_path_str, node.value()).replace(&self.internal_path_prefix, ""));
+            let mutation_count = self.mutations.get(&path).unwrap()
+                .iter().flat_map(|c| &c.mutations).collect::<Vec<_>>().len();
+            html_out.push_str(&format!("<div class=\"no-mutations\">{}</div>", mutation_count));
+        }
+        html_out.push_str("</div></div>");
 
         if node.is_folder() {
             html_out.push_str("<ul class=\"file-tree\">");
@@ -665,7 +679,17 @@ impl Renderer {
             }
             html_out.push_str("</ul>");
         } else {
-            // TODO: render mutations here
+            html_out.push_str("<ul class=\"file-tree\">");
+            let path = PathBuf::from(format!("{}{}", current_path_str, node.value()).replace(&self.internal_path_prefix, ""));
+            for conflict in self.mutations.get(&path).unwrap() {
+                for mutation in &conflict.mutations {
+                    html_out.push_str(&format!("<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\">", mutation.mutation_id, indentation_level));
+                    Self::get_detection_status_mini_marker(html_out, &mutation.detection_status);
+                    html_out.push_str(&format!("<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div>", mutation.mutation_id, mutation.name));
+                    html_out.push_str("</div></li>");
+                }
+            }
+            html_out.push_str("</ul>");
         }
 
         html_out.push_str("</li>");
@@ -703,8 +727,7 @@ impl Renderer {
                 if conflict.start_line == i {
                     for _ in conflict.start_line..conflict.end_line { file_lines_iter.next(); }
                     let section_name = format!("conflict-{}", Uuid::new_v4());
-                    html_out.push_str("<tbody class=\"");
-                    html_out.push_str(&section_name);
+                    html_out.push_str(&format!("<tbody id=\"{}\" class=\"{}", conflict.mutations[0].mutation_id, &section_name));
                     if conflict.mutations.len() > 1 {
                         html_out.push_str(" mutation-conflict-region");
                     }
@@ -717,9 +740,7 @@ impl Renderer {
                     if conflict.mutations.len() > 1 {
                         let mut i = 2;
                         for mutation in &conflict.mutations[1..] {
-                            html_out.push_str("<tbody class=\"");
-                            html_out.push_str(&section_name);
-                            html_out.push_str(" mutation-conflict-region hidden\">");
+                            html_out.push_str(&format!("<tbody id=\"{}\" class=\"{} mutation-conflict-region hidden\">", mutation.mutation_id, &section_name));
 
                             Self::render_mutation_section_header(html_out, conflict, i);
 
@@ -766,3 +787,5 @@ impl Renderer {
         self.no_lines_rendered
     }
 }
+
+// TODO: everywhere mutation ids are displayed they need to be +1'd
