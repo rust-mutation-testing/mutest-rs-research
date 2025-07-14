@@ -8,8 +8,9 @@ const MUTATION_ID_ATTR = 'mutation_id';
  * and shows it.
  * @param {string} mutationId
  * @param {string} filePath
+ * @param {boolean} autoscroll
  */
-function openMutation(mutationId, filePath = "") {
+function openMutation(mutationId, filePath = "", autoscroll = true) {
     try {
         let el = document.getElementById(mutationId);
         if (el.classList.contains('hidden')) {
@@ -19,7 +20,9 @@ function openMutation(mutationId, filePath = "") {
         }
         [...document.getElementsByTagName('tbody')].map(e => e.classList.remove('selected'));
         el.classList.add('selected');
-        el.scrollIntoView();
+        if (autoscroll) {
+            el.scrollIntoView();
+        }
     } catch (e) {
         console.info(`mutation ${mutationId} not in current file, opening new file`);
         let query = new Query('');

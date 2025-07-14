@@ -331,6 +331,7 @@ table {
 
 .code-wrapper {
     width: 100%;
+    overflow: auto;
 
     & > .code-header {
         height: var(--nav-height);
@@ -338,6 +339,7 @@ table {
         display: flex;
         align-items: center;
         padding: 10px;
+        gap: 10px;
 
         & > .file-name {
             display: flex;
@@ -350,12 +352,20 @@ table {
                 flex-shrink: 0;
             }
         }
+
+        & .hidden {
+            display: none;
+        }
     }
 
     & > .main-code-wrapper {
         height: var(--content-height);
         overflow-y: auto;
         width: 100%;
+
+        & > table {
+            min-width: max-content;
+        }
     }
 }
 
@@ -371,6 +381,10 @@ table {
     & > .file-tree-header {
         height: var(--nav-height);
         border-bottom: solid 1px var(--border-color);
+        display: flex;
+        padding: 10px;
+        align-items: center;
+        justify-content: right; /* TODO: temp */
     }
 
     & > .file-tree-container {
