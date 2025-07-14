@@ -655,7 +655,23 @@ impl Renderer {
                 _ => self.render_icon("folder.png", html_out),
             }
         } else {
-            self.render_icon("ferris_worried_64.png", html_out) // TODO: change based on how many mutations were detected
+            let path = PathBuf::from(format!("{}{}", current_path_str, node.value()).replace(&self.internal_path_prefix, ""));
+            let mut detected = true;
+            'outer: for conflicts in self.mutations.get(&path).unwrap() {
+                for mutation in &conflicts.mutations {
+                    match mutation.detection_status {
+                        Some(DetectionStatus::Detected) => {},
+                        Some(DetectionStatus::Undetected) | Some(DetectionStatus::Crashed) | Some(DetectionStatus::Timeout) | None => {
+                            detected = false;
+                            break 'outer;
+                        }
+                    }
+                }
+            }
+            match detected {
+                true => self.render_icon("ferris_party_64.png", html_out),
+                false => self.render_icon("ferris_worried_64.png", html_out),
+            }
         }
         html_out.push_str("</div>");
 
