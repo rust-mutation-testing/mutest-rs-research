@@ -1,38 +1,57 @@
-'use strict';
+import { openMutation } from "./mutations.js";
+import { openFile } from "./files.js";
 
-document.addEventListener('DOMContentLoaded', () => {
-    [...document.getElementsByClassName('toggle')].map(e => {
-        e.addEventListener('click', () => {
-            if (e.parentElement.parentElement.classList.contains('expanded')) {
-                e.parentElement.parentElement.classList.remove('expanded');
-            } else {
-                e.parentElement.parentElement.classList.add('expanded');
-            }
-        });
-    });
+/**
+ * toggles the visibility of a file nodes child elements
+ * @param {HTMLElement} fileNodeToggleElement
+ */
+function fileNodeToggle(fileNodeToggleElement) {
+    let toggle = fileNodeToggleElement.parentElement.parentElement;
+    if (toggle.classList.contains('expanded')) {
+        toggle.classList.remove('expanded');
+        return;
+    }
+    toggle.classList.add('expanded');
+}
 
-    [...document.getElementsByClassName('file')].map(e => {
-        e.addEventListener('click', () => {
-            window.open(e.getAttribute('data-file-name'), '_self');
-        });
-    });
+class FileTree {
+    constructor(fileTreeElement) {
+        this.el = fileTreeElement;
+    }
 
-    [...document.getElementsByClassName('ft-mutation')].map(e => {
-        e.addEventListener('click', () => {
-            try {
-                let el = document.getElementById(e.getAttribute('data-mutation-id'));
-                if (el.classList.contains('hidden')) {
-                    [...document.getElementsByClassName(el.classList[0])].map(e => e.classList.add('hidden'));
-                    el.classList.remove('hidden');
-                }
-                [...document.getElementsByTagName('tbody')].map(e => e.classList.remove('selected'));
-                el.classList.add('selected');
-                el.scrollIntoView();
-            } catch (ex) {
-                let fname = [...e.parentElement.parentElement.getElementsByClassName('node-value-wrapper')][0]
-                    .getAttribute('data-file-name');
-                window.open(`${fname}&mutation_id=${e.getAttribute('data-mutation-id')}`, '_self');
-            }
+    show() {
+        this.el.classList.add('hidden');
+    }
+
+    hide() {
+        this.el.classList.remove('hidden');
+    }
+
+    /**
+     * returns the file path associated with a parent element of the mutation in the file tree.
+     * @param {HTMLElement} e
+     * @returns {string}
+     */
+    mutationFilePath(e) {
+        return [...e.parentElement.parentElement.getElementsByClassName('node-value-wrapper')][0]
+            .getAttribute('data-file-path');
+    }
+
+    init() {
+        [...this.el.getElementsByClassName('toggle')].map(e => {
+            e.addEventListener('click', () => fileNodeToggle(e));
         });
-    });
-});
+
+        [...this.el.getElementsByClassName('file')].map(e => {
+            e.addEventListener('click', () => openFile(e.getAttribute('data-file-name')));
+        });
+
+        [...this.el.getElementsByClassName('ft-mutation')].map(e => {
+            e.addEventListener('click', () => {
+                openMutation(e.getAttribute('data-mutation-id'), this.mutationFilePath(e));
+            });
+        });
+    }
+}
+
+export { FileTree };
