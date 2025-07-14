@@ -625,7 +625,9 @@ impl Renderer {
     }
 
     fn render_file_tree(&self, html_out: &mut String) {
-        html_out.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
+        html_out.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\"><button id=\"file-tree-hide-btn\" class=\"nav-button\">");
+        self.render_icon("sidebar.png", html_out);
+        html_out.push_str("</button></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
         for node in self.file_tree.children() {
             self.render_file_tree_node(node, html_out, 0, &self.internal_path_prefix);
         }
@@ -726,7 +728,9 @@ impl Renderer {
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
         html_out.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
-        html_out.push_str("<div class=\"file-name\">");
+        html_out.push_str("<button id=\"file-tree-show-btn\" class=\"nav-button hidden\">");
+        self.render_icon("sidebar.png", html_out);
+        html_out.push_str("</button><div class=\"file-name\">");
         self.render_icon("ferris_64.png", html_out);
         html_out.push_str(&format!("{}</div>", path.file_name().unwrap().display().to_string()));
         html_out.push_str("</div>");

@@ -18,14 +18,20 @@ class FileTree {
     constructor(fileTreeWrapperElement, fileTreeElement) {
         this.wrapper = fileTreeWrapperElement;
         this.el = fileTreeElement;
+
+        // TODO: temp;
+        this.showBtn = document.getElementById('file-tree-show-btn');
+        this.hideBtn = document.getElementById('file-tree-hide-btn');
     }
 
     show() {
         this.wrapper.classList.remove('hidden');
+        this.showBtn.classList.add('hidden');
     }
 
     hide() {
         this.wrapper.classList.add('hidden');
+        this.showBtn.classList.remove('hidden');
     }
 
     /**
@@ -51,6 +57,14 @@ class FileTree {
             e.addEventListener('click', () => {
                 openMutation(e.getAttribute('data-mutation-id'), this.mutationFilePath(e));
             });
+        });
+
+        this.showBtn.addEventListener('click', () => {
+            this.show();
+        });
+
+        this.hideBtn.addEventListener('click', () => {
+            this.hide();
         });
     }
 }
