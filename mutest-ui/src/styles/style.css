@@ -12,6 +12,7 @@
     --main-bg: #474747;
     --code-bg: #383838;
     --numbers-bg: #3F3F3F;
+    --numbers-fg: rgba(239, 239, 239, 0.53);
     --nav-height: 40px;
     --content-height: calc(100vh - var(--nav-height));
 
@@ -38,7 +39,7 @@ body {
 
 .numbers {
     font-family: monospace;
-    color: rgba(239, 239, 239, 0.53);
+    color: var(--numbers-fg);
     padding: 0 12px;
     background: var(--numbers-bg);
     user-select: none;
@@ -71,6 +72,10 @@ body {
     color: #fff;
     width: fit-content;
     padding: 0 4px;
+
+    &.mini {
+        padding: 5px;
+    }
 
     &.detected {
         background: green;
@@ -389,14 +394,24 @@ table {
             & > .node-value-wrapper {
                 display: flex;
                 gap: 4px;
-                justify-content: center;
                 align-items: center;
                 user-select: none;
                 cursor: pointer;
+                width: 100%;
+                padding-right: 3px;
 
                 & > .node-value {
                     font-family: monospace;
                     color: #fff;
+                }
+
+                & > .no-mutations {
+                    margin-left: auto;
+                    font-family: monospace;
+                    background: var(--numbers-bg);
+                    border-radius: 5px;
+                    color: var(--numbers-fg);
+                    padding: 0 3px;
                 }
             }
         }
@@ -418,6 +433,39 @@ table {
 
             & > .file-tree {
                 display: block;
+            }
+        }
+    }
+
+    & > .ft-mutation {
+        & > .mutation-name-wrapper {
+            display: flex;
+            align-items: center;
+            padding-left: calc(20px * var(--level) + 23px);
+            gap: 4px;
+            height: 20px;
+            border-radius: 5px;
+            cursor: pointer;
+
+            &:hover {
+                background: var(--theme-color);
+            }
+
+            & > .mid {
+                margin-left: auto;
+                font-family: monospace;
+                background: var(--numbers-bg);
+                border-radius: 5px;
+                color: var(--numbers-fg);
+                padding: 0 3px;
+            }
+
+            & > .mutation-name {
+                font-family: monospace;
+                color: #fff;
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
             }
         }
     }
