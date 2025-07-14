@@ -609,9 +609,7 @@ impl Renderer {
     fn write_source_code_file_page_head(&self, html_out: &mut String) {
         html_out.push_str("<head>");
         html_out.push_str(&format!("<link rel=\"stylesheet\" href=\"{}{}\" />", self.internal_path_prefix, crate::asset_dir("styles/style.css")));
-        html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/code-collapser.js")));
-        html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/mutation-switcher.js")));
-        html_out.push_str(&format!("<script type=\"text/javascript\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/file-tree.js")));
+        html_out.push_str(&format!("<script type=\"module\" src=\"{}{}\"></script>", self.internal_path_prefix, crate::asset_dir("scripts/code-main.js")));
         html_out.push_str("</head>");
     }
 
@@ -627,7 +625,7 @@ impl Renderer {
     }
 
     fn render_file_tree(&self, html_out: &mut String) {
-        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul class=\"file-tree\">");
+        html_out.push_str("<div class=\"file-tree-wrapper\"><div class=\"file-tree-header\"></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
         for node in self.file_tree.children() {
             self.render_file_tree_node(node, html_out, 0, &self.internal_path_prefix);
         }
@@ -685,7 +683,7 @@ impl Renderer {
                 for mutation in &conflict.mutations {
                     html_out.push_str(&format!("<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\">", mutation.mutation_id, indentation_level));
                     Self::get_detection_status_mini_marker(html_out, &mutation.detection_status);
-                    html_out.push_str(&format!("<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div>", mutation.mutation_id, mutation.name));
+                    html_out.push_str(&format!("<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div>", mutation.mutation_id, html_escape::encode_text(&mutation.name)));
                     html_out.push_str("</div></li>");
                 }
             }
@@ -759,8 +757,8 @@ impl Renderer {
                             mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>",
                                                                mutation.mutation_id, html_escape::encode_text(&mutation.name).as_ref()));
                             Self::get_detection_status_marker(&mut mutation_changer, &mutation.detection_status);
-                            mutation_changer.push_str(&format!("<div class=\"mutation-wrapper\" data-target-class=\"{}\"><table class=\"no-status no-line-wrapper\">{}<tbody>{}</tbody></table></div></div>",
-                                                               &section_name, &changer_columns, &self.mutations_cache[mutation.mutation_id]));
+                            mutation_changer.push_str(&format!("<div class=\"mutation-wrapper\" data-target-class=\"{}\" data-mutation-id=\"{}\"><table class=\"no-status no-line-wrapper\">{}<tbody>{}</tbody></table></div></div>",
+                                                               &section_name, mutation.mutation_id, &changer_columns, &self.mutations_cache[mutation.mutation_id]));
                         }
                         mutation_changer.push_str("</div>");
                     }
