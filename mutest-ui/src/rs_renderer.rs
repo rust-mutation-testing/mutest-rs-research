@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::fs::create_dir_all;
 use std::path::{Path, PathBuf};
 use std::thread::current;
 use std::time::Instant;
@@ -9,7 +10,7 @@ use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use uuid::Uuid;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{file_tree, split_lines};
+use crate::{asset_dir, file_tree, split_lines};
 
 pub enum SysDiffType {
     Simple, // shows the line diff with simple double highlights for the entire mutation region
@@ -57,6 +58,7 @@ pub struct Renderer {
     no_lines_rendered: usize,
     file_tree: file_tree::FileTree,
     internal_path_prefix: String,
+    search_frame_path: PathBuf,
 }
 
 impl Renderer {
@@ -77,6 +79,7 @@ impl Renderer {
             no_lines_rendered: 0,
             file_tree: file_tree::FileTree::new(),
             internal_path_prefix: String::new(),
+            search_frame_path: PathBuf::new(),
         }
     }
 
@@ -615,6 +618,10 @@ impl Renderer {
 
     fn write_source_code_file_page_body(&mut self, path: &PathBuf, html_out: &mut String) {
         html_out.push_str("<body>");
+        if self.search_frame_path != PathBuf::new() {
+            html_out.push_str(&format!("<div class=\"search-frame-content-blocker hidden\"><div class=\"search-frame-wrapper\">\
+            <iframe class=\"search-frame\" src=\"{}__mutest_report_assets/frames/search.html\"></iframe></div></div>", self.internal_path_prefix));
+        }
         self.render_file_tree(html_out);
         self.render_source_code(path, html_out);
         html_out.push_str("</body>");
@@ -736,7 +743,6 @@ impl Renderer {
         html_out.push_str("</div>");
         html_out.push_str("<div class=\"main-code-wrapper\"><table>");
         html_out.push_str(&standard_columns);
-        html_out.push_str("<tbody>");
 
         let mut file_lines_iter = 0..file_lines.len();
         // for mut i in 0..file_lines.len() {
@@ -797,8 +803,33 @@ impl Renderer {
         }
 
         mutation_changer.push_str("</div></div>");
-        html_out.push_str("</tbody></table></div></div>");
+        html_out.push_str("</table></div></div>");
         html_out.push_str(&mutation_changer);
+    }
+
+    /// writes a search frame html file to the desired export path.
+    pub fn render_search_frame(&mut self, path: &PathBuf) {
+        let mut search_frame = String::new();
+        search_frame.push_str("<!DOCTYPE html><head><link rel=\"stylesheet\" href=\"../styles/style.css\" />\
+        <script type=\"module\" src=\"../scripts/search-main.js\"></script></head><body><main class=\"main-search-wrapper\">\
+        <div class=\"search-input\"><img src=\"../../__mutest_report_assets/icons/magnify.png\" class=\"generic-icon\" />
+        <input id=\"search-input\" class=\"search-input-field\" type=\"search\" placeholder=\"Search to filter mutations\" />\
+        <div class=\"checkbox-wrapper\"><input id=\"use-regex\" class=\"checkbox\" type=\"checkbox\" />\
+        <label for=\"use-regex\" class=\"checkbox-label\">Use regex</label></div></div><div class=\"mutations-wrapper\">");
+        for (path, conflicts) in &self.mutations {
+            for conflict in conflicts {
+                for mutation in &conflict.mutations {
+                    search_frame.push_str(&format!("<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"../../{}.html\">", mutation.mutation_id, path.display()));
+                    Self::get_detection_status_mini_marker(&mut search_frame, &mutation.detection_status);
+                    search_frame.push_str(&format!("<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div>", mutation.mutation_id, html_escape::encode_text(&mutation.name)));
+                }
+            }
+        }
+        search_frame.push_str("</div></main></body></html>");
+        let search_frame_root = path.join(asset_dir("frames"));
+        create_dir_all(&search_frame_root);
+        self.search_frame_path = search_frame_root.join("search.html");
+        fs::write(&self.search_frame_path, search_frame);
     }
 
     pub fn get_no_lines_rendered(&self) -> usize {
