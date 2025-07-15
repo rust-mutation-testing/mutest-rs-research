@@ -18,4 +18,41 @@ document.addEventListener('DOMContentLoaded', function() {
     collapse();
 
     openQueryMutation();
+
+    // TODO: temp
+    let sfcb = [...document.getElementsByClassName('search-frame-content-blocker')][0];
+    let sframe = [...document.getElementsByClassName('search-frame')][0];
+    let sframeDoc = sframe.contentDocument || sframe.contentWindow.document;
+    let sframeSearch = sframeDoc.getElementById('search-input');
+
+    sfcb.addEventListener('click', () => {
+        sfcb.classList.add('hidden');
+    });
+
+    document.addEventListener('keypress', (e) => {
+        if (e.key === '/') {
+            e.preventDefault();
+
+            sfcb.classList.toggle('hidden');
+            sframeSearch.focus();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            sframeSearch.blur();
+            sfcb.classList.add('hidden');
+        }
+    });
+
+    sframeSearch.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            sframeSearch.blur();
+            sfcb.classList.add('hidden');
+        }
+    });
 });

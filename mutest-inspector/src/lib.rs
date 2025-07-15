@@ -145,7 +145,11 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
 
     println!("[mutest-report] caching generic interface components (GICs)...");
     let cache_gic_start = Instant::now();
-    // TODO: cache GICs
+
+    let search_frame_start = Instant::now();
+    renderer.render_search_frame(&export_path);
+    let search_frame_elapsed = search_frame_start.elapsed();
+
     let cache_gic_elapsed = cache_gic_start.elapsed();
 
     println!("[mutest-report] caching file tree...");
@@ -185,11 +189,12 @@ pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
     let render_elapsed = render_start.elapsed();
 
     println!("[mutest-report] report created in {:?}, rendered {:?} line blocks. detailed timings below:", t_start.elapsed(), renderer.get_no_lines_rendered());
-    println!("    load elapsed:            {:?}", load_elapsed);
-    println!("    create renderer elapsed: {:?}", create_renderer_elapsed);
-    println!("    caching GICs elapsed:    {:?}", cache_gic_elapsed);
-    println!("    cache file tree elapsed: {:?}", cache_file_tree_elapsed);
-    println!("    mutations cache elapsed: {:?}", mutations_cache_elapsed);
-    println!("    copy assets elapsed:     {:?}", copy_assets_elapsed);
-    println!("    render elapsed:          {:?}", render_elapsed);
+    println!("    load elapsed:             {:?}", load_elapsed);
+    println!("    create renderer elapsed:  {:?}", create_renderer_elapsed);
+    println!("    caching GICs elapsed:     {:?}", cache_gic_elapsed);
+    println!("        caching search frame: {:?}", search_frame_elapsed);
+    println!("    cache file tree elapsed:  {:?}", cache_file_tree_elapsed);
+    println!("    mutations cache elapsed:  {:?}", mutations_cache_elapsed);
+    println!("    copy assets elapsed:      {:?}", copy_assets_elapsed);
+    println!("    render elapsed:           {:?}", render_elapsed);
 }
