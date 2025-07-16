@@ -803,7 +803,8 @@ impl Renderer {
         }
 
         mutation_changer.push_str("</div></div>");
-        html_out.push_str("</table></div></div>");
+        html_out.push_str(&format!("</table></div><div class=\"status-bar\"><div class=\"status-text\">{}</div>\
+        <div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">Ctrl</span> + <span class=\"key\">/</span> to search</div></div></div>", path.display()));
         html_out.push_str(&mutation_changer);
     }
 
