@@ -21,6 +21,15 @@ impl DetectionStatus {
             _ => None,
         }
     }
+    
+    pub fn as_str(&self) -> &str {
+        match self {
+            Detected => "detected",
+            Undetected => "undetected",
+            Crashed => "crashed",
+            Timeout => "timeout",
+        }
+    }
 }
 
 /// Represents a line and character representing either the start or end of a mutated region.
