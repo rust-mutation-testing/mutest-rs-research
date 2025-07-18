@@ -1,3 +1,5 @@
+import { openMutation } from "./mutations.js";
+
 /**
  * Look for regex matches of the search regex.
  * @param {string} regex
@@ -40,4 +42,59 @@ function search(query, regex = false) {
     });
 }
 
-export { search };
+document.addEventListener('DOMContentLoaded', function() {
+    let sfcb = [...document.getElementsByClassName('search-frame-content-blocker')][0];
+    let searchEl = document.getElementById('search-input');
+
+    sfcb.addEventListener('click', () => {
+        sfcb.classList.add('hidden');
+    });
+
+    document.getElementById('search-popover').addEventListener('click', e => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener('keypress', (e) => {
+        if (e.key === '/') {
+            e.preventDefault();
+
+            sfcb.classList.toggle('hidden');
+            searchEl.focus();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            searchEl.blur();
+            sfcb.classList.add('hidden');
+        }
+    });
+
+    searchEl.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            searchEl.blur();
+            sfcb.classList.add('hidden');
+        }
+    });
+
+    [...document.getElementsByClassName('search-mutation')].map(e => {
+        e.addEventListener('click', () => {
+            openMutation(e.getAttribute('data-mutation-id'), e.getAttribute('data-file-path'));
+        });
+    });
+
+    let searchInput = document.getElementById('search-input');
+    let checkEl = document.getElementById('use-regex');
+
+    searchInput.addEventListener('input', () => {
+        search(searchEl.value, checkEl.checked);
+    });
+
+    searchInput.addEventListener('click', () => {
+        search(searchEl.value, checkEl.checked);
+    });
+});

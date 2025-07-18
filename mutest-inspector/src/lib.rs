@@ -62,11 +62,24 @@ pub struct AppState {
     renderer: Mutex<renderer::Renderer>
 }
 
+async fn show_start(data: web::Data<AppState>) -> HttpResponse {
+    let mut body = String::new();
+    {
+        let mut renderer = data.renderer.lock().unwrap();
+        body = renderer.render_start();
+    }
+    HttpResponse::Ok().body(body)
+}
+
 async fn show_file(data: web::Data<AppState>, file: web::Path<PathBuf,>) -> HttpResponse {
     let mut body = String::new();
     {
         let mut renderer = data.renderer.lock().unwrap();
-        body = renderer.render_file(&file);
+        body = if renderer.valid_path(&file) {
+            renderer.render_file(&file)
+        } else {
+            renderer.render_start_with_error(&format!("file not found: {}", file.display()))
+        };
     }
     HttpResponse::Ok().body(body)
 }
@@ -107,7 +120,7 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
         println!();
     }
 
-    println!("[mutest-report] http://127.0.0.1:{}/file/{}", conf.port, paths[0].display());
+    println!("[mutest-report] get started: http://127.0.0.1:{}/", conf.port);
     let state = web::Data::new(AppState {
         renderer: Mutex::new(renderer),
     });
@@ -115,6 +128,7 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
         App::new()
             .app_data(state.clone())
             .route("/file/{file:.*}", web::get().to(show_file))
+            .route("/", web::get().to(show_start))
             .service(
                 Files::new("/static", &conf.resource_dir.join("static"))
             )

@@ -752,6 +752,48 @@ impl Renderer {
         self.render_cache.search = search;
     }
 
+    /// Determines if a path exists inside the renderers source code pool.
+    pub fn valid_path(&self, path: &PathBuf) -> bool {
+        match self.source_files.get(path) {
+            None => false,
+            Some(_) => true
+        }
+    }
+
+    /// Renders the default start page containing the file tree and some tips for using the app.
+    pub fn render_start(&self) -> String {
+        self.render_start_with_error("")
+    }
+
+    /// Renders the start page containing the file tree, some tips for using the app and the
+    /// specified error message.
+    pub fn render_start_with_error(&self, error_str: &str) -> String {
+        let mut render = String::from("<!DOCTYPE html><html><head>");
+        render.push_str("<meta charset=\"utf-8\">");
+        if error_str == "" {
+            render.push_str("<title>Mutest Report - Tips and Tricks</title>");
+        } else {
+            write!(render, "<title>Mutest Report - Error: {}</title>", error_str);
+        }
+        render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
+        render.push_str("</head><body>");
+        render.push_str(&self.render_cache.search);
+        render.push_str(&self.render_cache.file_tree);
+        render.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
+        render.push_str("<button id=\"file-tree-show-btn\" class=\"nav-button hidden\">");
+        write_icon(&mut render, "sidebar.png");
+        render.push_str("</button></div><div class=\"main-code-wrapper help-wrapper\"><div class=\"help\">");
+        write_icon_with_class_list(&mut render, "ferris_bg.webp", "ferris-bg");
+        render.push_str("<div class=\"help-text\"><span class=\"key\">/</span> open search</div>");
+        render.push_str("</div></div>");
+        render.push_str("<div class=\"status-bar\"><div class=\"spacer\"></div>");
+        render.push_str("<div class=\"status-text\"><span class=\"key\">/</span> to search</div>");
+        render.push_str("</div></div></div></body></html>");
+        render
+    }
+
     /// Renders the file (route: /file) document for a specific file.
     pub fn render_file(&mut self, path: &PathBuf) -> String {
         let mut render = String::from("<!DOCTYPE html><html><head>");
@@ -759,6 +801,8 @@ impl Renderer {
         write!(render, "<title>Mutest Report - {}</title>", path.file_name().unwrap().display());
         render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
         render.push_str("<script type=\"module\" src=\"/static/scripts/code-main.js\"></script>");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
         render.push_str("</head><body>");
         render.push_str(&self.render_cache.search);
         render.push_str(&self.render_cache.file_tree);
@@ -851,7 +895,7 @@ impl Renderer {
         }
 
         mutation_changer.push_str("</div></div>");
-        write!(render, "</table></div><div class=\"status-bar\"><div class=\"status-text\">{}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">Ctrl</span> + <span class=\"key\">/</span> to search</div></div></div>", path.display());
+        write!(render, "</table></div><div class=\"status-bar\"><div class=\"status-text\">{}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">/</span> to search</div></div></div>", path.display());
         render.push_str(&mutation_changer);
         
         html_out.push_str(&render);
