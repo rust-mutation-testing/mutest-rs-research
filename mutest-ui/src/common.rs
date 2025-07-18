@@ -1,1 +1,0 @@
-pub static DEFAULT_REPORT_DIR: &str = "./mutest/report";

@@ -1,7 +1,5 @@
 use clap::builder::{Styles};
 
-pub static DEFAULT_JSON_DIR: &str = "./mutest-data";
-
 pub fn clap_styles() -> Styles {
     use clap::builder::styling::*;
     Styles::styled()

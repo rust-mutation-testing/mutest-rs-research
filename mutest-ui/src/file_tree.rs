@@ -87,6 +87,15 @@ impl FileTree {
         FileTree { root_node: Node::default() }
     }
 
+    pub fn from_paths(paths: &Vec<PathBuf>) -> Self {
+        let mut ft = FileTree::new();
+        for path in paths {
+            ft.insert_path(path);
+        }
+        ft.sort();
+        ft
+    }
+    
     pub fn insert_path(&mut self, path: &PathBuf) {
         let mut prefix = PathBuf::new();
         for normal in get_path_normals(&path) {
