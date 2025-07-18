@@ -18,9 +18,10 @@ function getExpandButtonRow(callback) {
 
 /**
  * Collapses any <tbody> elements with more than 15 rows and no classes.
+ * @param {HTMLElement} el
  */
-function collapse() {
-    let collapsable = [...document.getElementsByTagName("tbody")]
+async function collapse_and_show(el) {
+    let collapsable = [...el.getElementsByTagName("tbody")]
         .filter(e => e.classList.length === 0 && e.childNodes.length > 15);
 
     for (let section of collapsable) {
@@ -37,6 +38,9 @@ function collapse() {
             }
         }), section.childNodes[end]);
     }
+
+    el.classList.remove('hidden');
+    console.log(el);
 }
 
-export { collapse };
+export { collapse_and_show };
