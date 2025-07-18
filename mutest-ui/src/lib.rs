@@ -89,5 +89,5 @@ pub fn server(conf: config::ServerConfig) {
         println!();
     }
 
-    println!("[mutest-report] starting server on https://127.0.0.1:{}", &conf.port);
+    println!("[mutest-report] starting server on http://127.0.0.1:{}", &conf.port);
 }
