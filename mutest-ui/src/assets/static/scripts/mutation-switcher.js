@@ -7,13 +7,11 @@ class MutationSwitcher {
      * Controls the Mutation Switcher portion of the user interface.
      * @param {HTMLElement} mutationSwitcherElement
      * @param {[HTMLElement]} mutationConflictRegionElements
-     * @param {FileTree} fileTree
      */
-    constructor(mutationSwitcherElement, mutationConflictRegionElements, fileTree) {
+    constructor(mutationSwitcherElement, mutationConflictRegionElements) {
         this.el = mutationSwitcherElement;
         // mutation conflict region elements
         this.mcrs = mutationConflictRegionElements;
-        this.ft = fileTree;
     }
 
     show() {

@@ -69,4 +69,11 @@ class FileTree {
     }
 }
 
+document.addEventListener('DOMContentLoaded', function() {
+    let ft = new FileTree(
+        document.getElementById('file-tree-wrapper'),
+        document.getElementById('file-tree'));
+    ft.init();
+});
+
 export { FileTree };
