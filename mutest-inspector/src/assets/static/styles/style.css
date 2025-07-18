@@ -113,7 +113,7 @@ table {
     background: var(--code-bg);
 }
 
-.line-wrapper.delete {
+.line-wrapper.remove {
     background: var(--line-delete);
 
     td:nth-child(3n)::before {
@@ -138,11 +138,11 @@ table {
 .inline-diff {
     border-radius: 5px;
 
-    &.old {
+    &.remove {
         background: var(--inline-delete);
     }
 
-    &.new {
+    &.insert {
         background: var(--inline-insert);
     }
 }

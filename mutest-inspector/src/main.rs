@@ -20,8 +20,8 @@ struct CargoCli {
     sys_diff_type: config::SysDiffType,
 
     /// Sets the port that the server is run on.
-    #[arg(short, long, default_value = "8080")]
-    port: String,
+    #[arg(short, long, default_value_t = 8080)]
+    port: u16,
 
     /// Directory holding mutest run results; the server assumes the default layout and
     /// auto-discovers source code by walking up the directory tree
@@ -38,7 +38,8 @@ struct CargoCli {
     resource_dir: PathBuf,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = CargoCli::parse();
     let config = config::ServerConfig {
         pre_cache_all: args.pre_cache_all,
@@ -48,5 +49,5 @@ fn main() {
         resource_dir: args.resource_dir,
         source_dir: args.source_dir,
     };
-    server(config);
+    server(config).await.expect("Fatal: mutest server failed to start!");
 }

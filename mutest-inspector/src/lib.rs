@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 extern crate core;
 
 mod mutations;
@@ -10,6 +12,9 @@ use std::fs::File;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
 use std::path::PathBuf;
+use std::sync::Mutex;
+use actix_files::Files;
+use actix_web::{get, web, App, HttpResponse, HttpServer};
 use serde::de::{DeserializeOwned, Error as DeError};
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
@@ -53,7 +58,20 @@ fn split_lines(data: &str) -> Vec<&str> {
     data.lines().collect()
 }
 
-pub fn server(conf: config::ServerConfig) {
+pub struct AppState {
+    renderer: Mutex<renderer::Renderer>
+}
+
+async fn show_file(data: web::Data<AppState>, file: web::Path<PathBuf,>) -> HttpResponse {
+    let mut body = String::new();
+    {
+        let mut renderer = data.renderer.lock().unwrap();
+        body = renderer.render_file(&file);
+    }
+    HttpResponse::Ok().body(body)
+}
+
+pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
     println!("[mutest-report] loading mutest results...");
     let res = read_all_metadata(&conf.results_dir);
     let mutations_by_file = match res {
@@ -89,5 +107,19 @@ pub fn server(conf: config::ServerConfig) {
         println!();
     }
 
-    println!("[mutest-report] starting server on http://127.0.0.1:{}", &conf.port);
+    println!("[mutest-report] http://127.0.0.1:{}/file/{}", conf.port, paths[0].display());
+    let state = web::Data::new(AppState {
+        renderer: Mutex::new(renderer),
+    });
+    HttpServer::new(move || {
+        App::new()
+            .app_data(state.clone())
+            .route("/file/{file:.*}", web::get().to(show_file))
+            .service(
+                Files::new("/static", &conf.resource_dir.join("static"))
+            )
+    })
+        .bind(("127.0.0.1", conf.port))?
+        .run()
+        .await
 }
