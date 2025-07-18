@@ -1,7 +1,8 @@
 import { FileTree } from "./file-tree.js";
 import { MutationSwitcher } from "./mutation-switcher.js";
 import { collapse_and_show } from "./collapser.js";
-import { openQueryMutation } from "./mutations.js";
+import { openMutation, openQueryMutation } from "./mutations.js";
+import { search } from "./search.js";
 
 document.addEventListener('DOMContentLoaded', function() {
     let ft = new FileTree(
@@ -19,40 +20,57 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // TODO: temp
     let sfcb = [...document.getElementsByClassName('search-frame-content-blocker')][0];
-    let sframe = [...document.getElementsByClassName('search-frame')][0];
-    sframe.addEventListener('load', () => {
-        let sframeDoc = sframe.contentDocument || sframe.contentWindow.document;
-        let sframeSearch = sframeDoc.getElementById('search-input');
+    let searchEl = document.getElementById('search-input');
 
-        sfcb.addEventListener('click', () => {
+    sfcb.addEventListener('click', () => {
+        sfcb.classList.add('hidden');
+    });
+
+    document.getElementById('search-popover').addEventListener('click', e => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener('keypress', (e) => {
+        if (e.key === '/') {
+            e.preventDefault();
+
+            sfcb.classList.toggle('hidden');
+            searchEl.focus();
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            searchEl.blur();
             sfcb.classList.add('hidden');
+        }
+    });
+
+    searchEl.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
+            e.preventDefault();
+
+            searchEl.blur();
+            sfcb.classList.add('hidden');
+        }
+    });
+
+    [...document.getElementsByClassName('search-mutation')].map(e => {
+        e.addEventListener('click', () => {
+            openMutation(e.getAttribute('data-mutation-id'), e.getAttribute('data-file-path'));
         });
+    });
 
-        document.addEventListener('keypress', (e) => {
-            if (e.key === '/') {
-                e.preventDefault();
+    let searchInput = document.getElementById('search-input');
+    let checkEl = document.getElementById('use-regex');
 
-                sfcb.classList.toggle('hidden');
-                sframeSearch.focus();
-            }
-        });
+    searchInput.addEventListener('input', () => {
+        search(searchEl.value, checkEl.checked);
+    });
 
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
-                e.preventDefault();
-
-                sframeSearch.blur();
-                sfcb.classList.add('hidden');
-            }
-        });
-
-        sframeSearch.addEventListener('keyup', (e) => {
-            if (e.key === 'Escape' && !sfcb.classList.contains('hidden')) {
-                e.preventDefault();
-
-                sframeSearch.blur();
-                sfcb.classList.add('hidden');
-            }
-        });
-    })
+    searchInput.addEventListener('click', () => {
+        search(searchEl.value, checkEl.checked);
+    });
 });

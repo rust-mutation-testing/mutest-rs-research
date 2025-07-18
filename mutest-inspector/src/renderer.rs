@@ -730,7 +730,7 @@ impl Renderer {
         let mut search = String::new();
         search.push_str("<div class=\"search-frame-content-blocker hidden\">");
         search.push_str("<div class=\"search-frame-wrapper\">");
-        search.push_str("<div class=\"search-frame main-search-wrapper\"><div class=\"search-input\">");
+        search.push_str("<div id=\"search-popover\" class=\"search-frame main-search-wrapper\"><div class=\"search-input\">");
         search.push_str("<img class=\"generic-icon\" src=\"/static/icons/magnify.png\" alt=\"magnifying glass\" />");
         search.push_str("<input id=\"search-input\" class=\"search-input-field\" type=\"search\" placeholder=\"Search to filter mutations\" />");
         search.push_str("<div class=\"checkbox-wrapper\">");
@@ -741,7 +741,7 @@ impl Renderer {
         for (path, conflicts) in &self.source_mutations {
             for conflict in conflicts {
                 for mutation in &conflict.mutations {
-                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"{}\">", mutation.mutation_id, path.display());
+                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"/file/{}\">", mutation.mutation_id, path.display());
                     write_detection_status_mini_marker(&mut search, &mutation.detection_status);
                     write!(search, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div>", mutation.mutation_id, html_escape::encode_text(&mutation.name));
                 }
