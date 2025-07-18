@@ -40,7 +40,6 @@ async function collapse_and_show(el) {
     }
 
     el.classList.remove('hidden');
-    console.log(el);
 }
 
 export { collapse_and_show };
