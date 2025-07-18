@@ -1,6 +1,6 @@
 import { FileTree } from "./file-tree.js";
 import { MutationSwitcher } from "./mutation-switcher.js";
-import { collapse } from "./collapser.js";
+import { collapse_and_show } from "./collapser.js";
 import { openQueryMutation } from "./mutations.js";
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -15,9 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ft);
     ms.init();
 
-    collapse();
-
-    openQueryMutation();
+    collapse_and_show(document.getElementById('code-table')).then(r => openQueryMutation());
 
     // TODO: temp
     let sfcb = [...document.getElementsByClassName('search-frame-content-blocker')][0];

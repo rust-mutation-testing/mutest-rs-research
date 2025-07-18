@@ -635,7 +635,7 @@ impl Renderer {
         let mut file_tree = String::new();
         file_tree.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\"><button id=\"file-tree-hide-btn\" class=\"nav-button\">");
         write_icon(&mut file_tree, "sidebar.png");
-        file_tree.push_str("</button></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
+        write!(file_tree, "</button></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\" data-session-id=\"{}\">", Uuid::new_v4());
         for node in ft.children() {
             self.render_file_tree_node(&mut file_tree, node, 0, "/file/");
         }
@@ -790,7 +790,7 @@ impl Renderer {
         render.push_str("</button><div class=\"file-name\">");
         write_icon(&mut render, "ferris_64.png");
         write!(render, "{}</div></div>", path.file_name().unwrap().display());
-        render.push_str("<div class=\"main-code-wrapper\"><table>");
+        render.push_str("<div class=\"main-code-wrapper\"><table id=\"code-table\" class=\"main-code-table hidden\">");
         render.push_str(&standard_columns);
 
         let mut file_lines_iter = 0..file_lines.len();
