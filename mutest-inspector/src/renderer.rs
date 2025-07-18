@@ -178,7 +178,7 @@ impl RendererSyntaxAssets {
     pub fn new(assets_path: &PathBuf) -> Self {
         let syntax_set = SyntaxSet::load_defaults_newlines();
         let syntax_ref = syntax_set.find_syntax_by_extension("rs").unwrap().clone();
-        let theme = ThemeSet::load_from_folder(assets_path.join("assets/themes")).unwrap().themes["Darcula"].clone();
+        let theme = ThemeSet::load_from_folder(assets_path.join("themes")).unwrap().themes["Darcula"].clone();
 
         RendererSyntaxAssets { syntax_set, syntax_ref, theme }
     }

@@ -1,34 +1,21 @@
-#![allow(unused)]
-
 extern crate core;
 
-pub mod common;
 mod mutations;
-mod rs_renderer;
 mod files;
 mod file_tree;
 mod renderer;
-mod config;
+pub mod config;
 
-use std::collections::HashMap;
-use std::fs::{create_dir_all, File};
-use std::{env, fs};
-use std::io::{BufReader};
-use std::path::{Component, PathBuf};
-use std::process::exit;
-use std::ptr::replace;
-use std::time::Instant;
+use std::fs::File;
+use std::fs;
+use std::io::{stdout, BufReader, Write};
+use std::path::PathBuf;
 use serde::de::{DeserializeOwned, Error as DeError};
-use syntect::parsing::SyntaxSet;
-use log::error;
-use walkdir::WalkDir;
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
-use mutest_json::{IdxVec, Span};
 use mutest_json::mutations::*;
 use mutest_json::tests::*;
 use mutest_json::timings::*;
-use crate::rs_renderer::Renderer;
 
 #[derive(Debug)]
 struct Metadata {
@@ -66,135 +53,41 @@ fn split_lines(data: &str) -> Vec<&str> {
     data.lines().collect()
 }
 
-fn explore_directory(target_directory: &PathBuf) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = Vec::new();
+pub fn server(conf: config::ServerConfig) {
+    println!("[mutest-report] loading mutest results...");
+    let res = read_all_metadata(&conf.results_dir);
+    let mutations_by_file = match res {
+        Ok(metadata) => mutations::streamline_mutations(metadata),
+        Err(e) => panic!("{:?}", e),
+    };
 
-    for entry in WalkDir::new(target_directory) {
-        let path = entry.expect("WalkDir error").into_path();
-        if path.is_file() {
-            files.push(path);
+    println!("[mutest-report] loading source files...");
+    let paths = mutations::get_source_file_paths(&mutations_by_file);
+    let source_files = match conf.source_dir {
+        Some(source_dir) => files::Files::new(&source_dir, paths.clone()),
+        None => {
+            let source_dir = PathBuf::from(&conf.results_dir.parent().unwrap().parent().unwrap());
+            files::Files::new(&source_dir, paths.clone())
         }
-    }
-
-    files
-}
-
-fn asset_dir(dir_name: &str) -> String {
-    format!("__mutest_report_assets/{}", dir_name)
-}
-
-fn with_res_dir(dir: &str) -> PathBuf {
-    match env::var("MUTEST_RESOURCE_DIR") {
-        Ok(res_dir) => PathBuf::from(res_dir).join(dir),
-        Err(e) => PathBuf::from(dir),
-    }
-}
-
-fn cp_files(report_root_dir: &PathBuf, moved_root: &str, files: &Vec<PathBuf>) {
-    let moved_root_path = PathBuf::from(report_root_dir).join(moved_root);
-    create_dir_all(&moved_root_path);
-    for file in files {
-        let new_style_path = PathBuf::from(&moved_root_path).join(file.file_name().unwrap());
-        fs::copy(&file, &new_style_path);
-    }
-}
-
-fn copy_all(src_dir_name: &str, out_dir_name: &str, out_dir: &PathBuf) {
-    let styles = explore_directory(&with_res_dir(src_dir_name));
-    cp_files(out_dir, &asset_dir(out_dir_name), &styles);
-}
-
-fn path_depth(path: &PathBuf) -> usize {
-    path.components().filter(|c| matches!(c, Component::Normal(_))).count()
-}
-
-pub fn server(json_dir_path: &PathBuf) {
-    // TODO: reuse below code in future
-}
-
-pub fn report(json_dir_path: &PathBuf, export_path: &PathBuf) {
-    let res = read_all_metadata(json_dir_path);
-    if let Err(e) = res {
-        println!("error: {}", e);
-        exit(1);
-    }
-
-    let t_start = Instant::now();
-
-    println!("[mutest-report] loading assets...");
-    let load_start = Instant::now();
-    let streamlined = mutations::streamline_mutations(res.unwrap());
-    let paths = mutations::get_source_file_paths(&streamlined);
-    let _paths = paths.clone();
-    let paths_root = PathBuf::from(json_dir_path.parent().unwrap().parent().unwrap());
-    let source_files = files::Files::new(&paths_root, paths);
-    if let Err(e) = source_files {
-        println!("error: {}", e);
-        exit(1);
-    }
-    let load_elapsed = load_start.elapsed();
+    }.expect("failed to read source files from path");
 
     println!("[mutest-report] creating renderer...");
-    let create_renderer_start = Instant::now();
-    let mut renderer = renderer::Renderer::new(&PathBuf::from("mutest-ui/src"), source_files.unwrap().get_files_map(), streamlined);
-    let create_renderer_elapsed = create_renderer_start.elapsed();
+    let mut renderer = renderer::Renderer::new(&conf.resource_dir, source_files.get_files_map(), mutations_by_file);
 
-    println!("[mutest-report] caching generic interface components (GICs)...");
-    let cache_gic_start = Instant::now();
-
-    let search_frame_start = Instant::now();
+    println!("[mutest-report] caching interface components...");
+    renderer.cache_mutations(conf.sys_diff_type);
+    renderer.cache_file_tree(file_tree::FileTree::from_paths(&paths));
     renderer.cache_search();
-    let search_frame_elapsed = search_frame_start.elapsed();
 
-    let cache_gic_elapsed = cache_gic_start.elapsed();
-
-    println!("[mutest-report] caching file tree...");
-    let cache_file_tree_start = Instant::now();
-    let mut ft = file_tree::FileTree::new();
-    for path in &_paths {
-        ft.insert_path(path);
+    if conf.pre_cache_all {
+        println!("[mutest-report] pre-caching {} files", paths.len());
+        for path in &paths {
+            let _ = renderer.render_file(path);
+            print!(".");
+            stdout().flush();
+        }
+        println!();
     }
-    ft.sort();
-    renderer.cache_file_tree(ft);
-    let cache_file_tree_elapsed = cache_file_tree_start.elapsed();
 
-    println!("[mutest-report] caching mutations...");
-    let mutations_cache_start = Instant::now();
-    renderer.cache_mutations(config::SysDiffType::Advanced);
-    let mutations_cache_elapsed = mutations_cache_start.elapsed();
-
-    println!("[mutest-report] copying assets...");
-    let copy_assets_start = Instant::now();
-    let report_path = PathBuf::from("mutest/report");
-    copy_all("assets/static/styles", "styles", &export_path);
-    copy_all("assets/static/scripts", "scripts", &export_path);
-    copy_all("assets/static/icons", "icons", &export_path);
-    let copy_assets_elapsed = copy_assets_start.elapsed();
-
-    println!("[mutest-report] beginning render process...");
-    let render_start = Instant::now();
-    for path in _paths {
-        let depth = path_depth(&path) - 1;
-        let mut fpath = PathBuf::from("mutest/report").join(&path);
-
-        let file_start = Instant::now();
-
-        let file = renderer.render_file(&path);
-        fpath.set_extension("rs.html");
-        create_dir_all(&fpath.parent().unwrap());
-        fs::write(&fpath, file);
-
-        println!("[mutest-report] created {} ({:?})", &fpath.display(), file_start.elapsed());
-    }
-    let render_elapsed = render_start.elapsed();
-
-    println!("[mutest-report] report created in {:?}. detailed timings below:", t_start.elapsed());
-    println!("    load elapsed:             {:?}", load_elapsed);
-    println!("    create renderer elapsed:  {:?}", create_renderer_elapsed);
-    println!("    caching GICs elapsed:     {:?}", cache_gic_elapsed);
-    println!("        caching search frame: {:?}", search_frame_elapsed);
-    println!("    cache file tree elapsed:  {:?}", cache_file_tree_elapsed);
-    println!("    mutations cache elapsed:  {:?}", mutations_cache_elapsed);
-    println!("    copy assets elapsed:      {:?}", copy_assets_elapsed);
-    println!("    render elapsed:           {:?}", render_elapsed);
+    println!("[mutest-report] starting server on http://127.0.0.1:{}", &conf.port);
 }

@@ -1,65 +1,52 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
-use mutest_ui::{server, report, common};
+use clap::{Parser};
+use mutest_ui::{server, config};
 
-#[derive(Parser)]
-#[command(name = "cargo mutest-ui")]
-#[command(bin_name = "cargo mutest-ui")]
-#[command(styles = mutest_driver_cli::clap_styles())]
+#[derive(Parser, Debug)]
+#[command(
+    name = "cargo mutest-ui",
+    bin_name = "cargo mutest-ui",
+    about = "Runs the mutest web server for results visualization",
+    styles = mutest_driver_cli::clap_styles(),
+)]
 struct CargoCli {
-    #[clap(subcommand)]
-    command: MutestUiCommands,
-}
+    /// Pre-caches all static code files before running the server.
+    #[arg(long, default_value_t = false)]
+    pre_cache_all: bool,
 
-#[derive(Subcommand)]
-enum MutestUiCommands {
-    #[command(
-        about = "Runs the Mutest UI server for real time report generation.",
-        long_about = "Runs the Mutest UI server on the localhost address. The Mutest UI server provides an enhanced feature set which allows viewing of the mutest call-graph for each mutation.",
-    )]
-    #[command(arg_required_else_help = true)]
-    Server {
-        #[arg(
-            short = 'd',
-            long = "mutest-data-dir",
-            value_name = "MUTEST_OUTPUT_PATH",
-            default_value = common::DEFAULT_JSON_DIR,
-        )]
-        json_path: PathBuf,
-    },
-    #[command(
-        about = "Export the Mutest UI report of the mutest output.",
-        long_about = "Exports the Mutest UI report as static html files. Due to the number and size of each generated file, the report has a reduced feature set compared to the server.",
-    )]
-    #[command(arg_required_else_help = true)]
-    Report {
-        #[arg(
-            short = 'd',
-            long = "mutest-data-dir",
-            value_name = "MUTEST_OUTPUT_PATH",
-            default_value = common::DEFAULT_JSON_DIR,
-        )]
-        json_path: PathBuf,
-        #[arg(
-            short = 'e',
-            long = "export-dir",
-            value_name = "REPORT_EXPORT_PATH",
-            default_value = common::DEFAULT_REPORT_DIR,
-        )]
-        export_path: PathBuf,
-    }
+    /// Sets the diffing type used by the server when displaying mutations.
+    #[arg(long = "diff-type", default_value = "advanced", value_name = "DIFF_TYPE")]
+    sys_diff_type: config::SysDiffType,
+
+    /// Sets the port that the server is run on.
+    #[arg(short, long, default_value = "8080")]
+    port: String,
+
+    /// Directory holding mutest run results; the server assumes the default layout and
+    /// auto-discovers source code by walking up the directory tree
+    #[arg(long, default_value = "mutest/report")]
+    results_dir: PathBuf,
+
+    /// Specify the source code directory when the results directory has been moved from its
+    /// default location
+    #[arg(long)]
+    source_dir: Option<PathBuf>,
+
+    /// The path to the /assets directory in the server source code.
+    #[arg(long, required = true)]
+    resource_dir: PathBuf,
 }
 
 fn main() {
     let args = CargoCli::parse();
-
-    match args.command {
-        MutestUiCommands::Server { json_path } => {
-            server(&json_path);
-        },
-        MutestUiCommands::Report { json_path, export_path } => {
-            report(&json_path, &export_path);
-        }
-    }
+    let config = config::ServerConfig {
+        pre_cache_all: args.pre_cache_all,
+        sys_diff_type: args.sys_diff_type,
+        port: args.port,
+        results_dir: args.results_dir,
+        resource_dir: args.resource_dir,
+        source_dir: args.source_dir,
+    };
+    server(config);
 }
