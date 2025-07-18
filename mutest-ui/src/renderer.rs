@@ -128,7 +128,7 @@ fn highlight_span(html_out: &mut String, style: Style, text: &str) {
 }
 
 fn write_icon_with_class_list(html_out: &mut String, icon_name: &str, class_list: &str) {
-    write!(html_out, "<img class=\"generic-icon {}\" src=\"/assets/static/icons/{}\" alt=\"\" />", class_list, icon_name);
+    write!(html_out, "<img class=\"generic-icon {}\" src=\"/static/icons/{}\" alt=\"\" />", class_list, icon_name);
 }
 
 fn write_icon(html_out: &mut String, icon_name: &str) {
@@ -637,7 +637,7 @@ impl Renderer {
         write_icon(&mut file_tree, "sidebar.png");
         file_tree.push_str("</button></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\">");
         for node in ft.children() {
-            self.render_file_tree_node(&mut file_tree, node, 0, "/file");
+            self.render_file_tree_node(&mut file_tree, node, 0, "/file/");
         }
         file_tree.push_str("</ul></div></div>");
         self.render_cache.file_tree = file_tree;
@@ -663,7 +663,7 @@ impl Renderer {
         html_out.push_str("\">");
 
         let path = if !node.is_folder() {
-            PathBuf::from(format!("{}{}", current_path_str, node.value()).replace("/file", ""))
+            PathBuf::from(format!("{}{}", current_path_str, node.value()).replace("/file/", ""))
         } else {
             PathBuf::new()
         };
@@ -731,7 +731,7 @@ impl Renderer {
         search.push_str("<div class=\"search-frame-content-blocker hidden\">");
         search.push_str("<div class=\"search-frame-wrapper\">");
         search.push_str("<div class=\"search-frame main-search-wrapper\"><div class=\"search-input\">");
-        search.push_str("<img class=\"generic-icon\" src=\"/assets/static/icons/magnify.png\" alt=\"magnifying glass\" />");
+        search.push_str("<img class=\"generic-icon\" src=\"/static/icons/magnify.png\" alt=\"magnifying glass\" />");
         search.push_str("<input id=\"search-input\" class=\"search-input-field\" type=\"search\" placeholder=\"Search to filter mutations\" />");
         search.push_str("<div class=\"checkbox-wrapper\">");
         search.push_str("<input id=\"use-regex\" class=\"checkbox\" type=\"checkbox\" />");
@@ -757,8 +757,8 @@ impl Renderer {
         let mut render = String::from("<!DOCTYPE html><html><head>");
         render.push_str("<meta charset=\"utf-8\">");
         write!(render, "<title>Mutest Report - {}</title>", path.file_name().unwrap().display());
-        render.push_str("<link rel=\"stylesheet\" href=\"/assets/static/styles/style.css\" />");
-        render.push_str("<script type=\"module\" src=\"/assets/static/scripts/code-main.js\"></script>");
+        render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/code-main.js\"></script>");
         render.push_str("</head><body>");
         render.push_str(&self.render_cache.search);
         render.push_str(&self.render_cache.file_tree);
