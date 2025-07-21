@@ -487,7 +487,7 @@ impl Renderer {
                                         }
                                     }
                                     ChangeTag::Insert => {
-                                        // Find corresponding delete (if needed)
+                                        // TODO: this only fetches line above, not the actual corresponding delete line
                                         if let Some(delete_change) = changes.get(i - 1)
                                             .filter(|c| c.tag() == ChangeTag::Delete) {
 
@@ -656,9 +656,9 @@ impl Renderer {
         write_icon_with_class_list(html_out, "chevron-down.png", "expanded");
         html_out.push_str("</button>");
 
-        html_out.push_str("<div class=\"node-value-wrapper");
+        html_out.push_str("<a class=\"node-value-wrapper");
         if !node.is_folder() {
-            write!(html_out, " file\" data-file-name=\"{}{}", current_path_str, node.value());
+            write!(html_out, " file\" href=\"{}{}", current_path_str, node.value());
         }
         html_out.push_str("\">");
 
@@ -702,7 +702,7 @@ impl Renderer {
                 .iter().flat_map(|c| &c.mutations).collect::<Vec<_>>().len();
             write!(html_out, "<div class=\"no-mutations\">{}</div>", mutation_count);
         }
-        html_out.push_str("</div></div>");
+        html_out.push_str("</div></a>");
 
         if node.is_folder() {
             html_out.push_str("<ul class=\"file-tree\">");
@@ -714,9 +714,9 @@ impl Renderer {
             html_out.push_str("<ul class=\"file-tree\">");
             for conflict in self.source_mutations.get(&path).unwrap() {
                 for mutation in &conflict.mutations {
-                    write!(html_out, "<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\">", mutation.mutation_id, indentation_level);
+                    write!(html_out, "<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\">", mutation.display_id(), indentation_level);
                     write_detection_status_mini_marker(html_out, &mutation.detection_status);
-                    write!(html_out, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div></li>", mutation.mutation_id, html_escape::encode_text(&mutation.name));
+                    write!(html_out, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div></li>", mutation.display_id(), html_escape::encode_text(&mutation.name));
                 }
             }
             html_out.push_str("</ul>");
@@ -741,9 +741,9 @@ impl Renderer {
         for (path, conflicts) in &self.source_mutations {
             for conflict in conflicts {
                 for mutation in &conflict.mutations {
-                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"/file/{}\">", mutation.mutation_id, path.display());
+                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"/file/{}\">", mutation.display_id(), path.display());
                     write_detection_status_mini_marker(&mut search, &mutation.detection_status);
-                    write!(search, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div>", mutation.mutation_id, html_escape::encode_text(&mutation.name));
+                    write!(search, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div>", mutation.display_id(), html_escape::encode_text(&mutation.name));
                 }
             }
         }
@@ -844,7 +844,7 @@ impl Renderer {
                 if conflict.start_line == i {
                     for _ in conflict.start_line..conflict.end_line { file_lines_iter.next(); }
                     let section_name = format!("conflict-{}", Uuid::new_v4());
-                    write!(render, "<tbody id=\"{}\" class=\"{} mutation-region", conflict.mutations[0].mutation_id, &section_name);
+                    write!(render, "<tbody id=\"{}\" class=\"{} mutation-region", conflict.mutations[0].display_id(), &section_name);
                     if conflict.mutations.len() > 1 {
                         render.push_str(" mutation-conflict-region");
                     }
@@ -857,7 +857,7 @@ impl Renderer {
                     if conflict.mutations.len() > 1 {
                         let mut i = 2;
                         for mutation in &conflict.mutations[1..] {
-                            render.push_str(&format!("<tbody id=\"{}\" class=\"{} mutation-conflict-region hidden\">", mutation.mutation_id, &section_name));
+                            render.push_str(&format!("<tbody id=\"{}\" class=\"{} mutation-conflict-region hidden\">", mutation.display_id(), &section_name));
 
                             write_mutation_section_header(&mut render, conflict, i);
 
@@ -874,10 +874,10 @@ impl Renderer {
                         for mutation in &conflict.mutations {
                             mutation_changer.push_str("<div class=\"mutation-content-wrapper\">");
                             mutation_changer.push_str(&format!("<h2 class=\"mutation-name\"><span class=\"mutation-id\">{}</span> {}</h2>",
-                                                               mutation.mutation_id, html_escape::encode_text(&mutation.name).as_ref()));
+                                                               mutation.display_id(), html_escape::encode_text(&mutation.name).as_ref()));
                             write_detection_status_marker(&mut mutation_changer, &mutation.detection_status);
                             mutation_changer.push_str(&format!("<div class=\"mutation-wrapper\" data-target-class=\"{}\" data-mutation-id=\"{}\"><table class=\"no-status no-line-wrapper\">{}<tbody>{}</tbody></table></div></div>",
-                                                               &section_name, mutation.mutation_id, &changer_columns, &self.render_cache.mutations[mutation.mutation_id]));
+                                                               &section_name, mutation.display_id(), &changer_columns, &self.render_cache.mutations[mutation.mutation_id]));
                         }
                         mutation_changer.push_str("</div>");
                     }

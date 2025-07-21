@@ -10,7 +10,7 @@ const MUTATION_ID_ATTR = 'mutation_id';
  * @param {string} filePath
  * @param {boolean} autoscroll
  */
-function openMutation(mutationId, filePath = "", autoscroll = true) {
+function openMutation(mutationId, filePath = "", autoscroll = true, autoRedirect=true) {
     try {
         let el = document.getElementById(mutationId);
         if (el.classList.contains('hidden')) {
@@ -24,10 +24,13 @@ function openMutation(mutationId, filePath = "", autoscroll = true) {
             el.scrollIntoView();
         }
     } catch (e) {
-        console.info(`mutation ${mutationId} not in current file, opening new file`);
         let query = new Query('');
         query.setAttribute(MUTATION_ID_ATTR, mutationId);
-        openFile(filePath, query);
+        if (autoRedirect) {
+            openFile(filePath, query);
+        } else {
+            console.error(`failed to find mutation ${mutationId} in current page!`);
+        }
     }
 }
 
@@ -38,7 +41,7 @@ function hideMutationsWithClassName(className) {
 function openQueryMutation() {
     let query = new Query(Query.queryString());
     if (query.getAttribute(MUTATION_ID_ATTR) !== undefined) {
-        openMutation(query.getAttribute(MUTATION_ID_ATTR))
+        openMutation(query.getAttribute(MUTATION_ID_ATTR), "", true, false);
     }
 }
 

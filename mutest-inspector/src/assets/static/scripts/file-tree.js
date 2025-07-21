@@ -40,17 +40,12 @@ class FileTree {
      * @returns {string}
      */
     mutationFilePath(e) {
-        return [...e.parentElement.parentElement.getElementsByClassName('file')][0]
-            .getAttribute('data-file-name');
+        return [...e.parentElement.parentElement.getElementsByClassName('file')][0].href;
     }
 
     init() {
         [...this.el.getElementsByClassName('toggle')].map(e => {
             e.addEventListener('click', () => fileNodeToggle(e));
-        });
-
-        [...this.el.getElementsByClassName('file')].map(e => {
-            e.addEventListener('click', () => openFile(e.getAttribute('data-file-name')));
         });
 
         [...this.el.getElementsByClassName('ft-mutation')].map(e => {

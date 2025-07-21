@@ -474,6 +474,7 @@ table {
                 cursor: pointer;
                 width: 100%;
                 padding-right: 3px;
+                text-decoration: none;
 
                 & > .node-value {
                     font-family: monospace;
