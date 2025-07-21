@@ -69,6 +69,12 @@ impl Mutation {
                 .mutation_detection_matrix.overall_detections.as_bytes()[mutation.mutation_id.as_index()])
         }
     }
+    
+    /// Returns the mutation_id + 1 as the Mutation type decrements ids by one in order to index
+    /// from 0.
+    pub fn display_id(&self) -> usize {
+        self.mutation_id + 1
+    }
 }
 
 /// Represents a region of lines where several grouped mutations would conflict with each other if
