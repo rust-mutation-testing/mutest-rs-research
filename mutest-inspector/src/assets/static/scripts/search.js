@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             sfcb.classList.toggle('hidden');
             searchEl.focus();
+            searchEl.select();
         }
     });
 
@@ -84,6 +85,8 @@ document.addEventListener('DOMContentLoaded', function() {
     [...document.getElementsByClassName('search-mutation')].map(e => {
         e.addEventListener('click', () => {
             openMutation(e.getAttribute('data-mutation-id'), e.getAttribute('data-file-path'));
+            searchEl.blur();
+            sfcb.classList.add('hidden');
         });
     });
 
