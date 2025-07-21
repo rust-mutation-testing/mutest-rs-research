@@ -778,6 +778,7 @@ impl Renderer {
         render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
         render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
+        render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
         render.push_str("</head><body>");
         render.push_str(&self.render_cache.search);
         render.push_str(&self.render_cache.file_tree);
@@ -803,6 +804,7 @@ impl Renderer {
         render.push_str("<script type=\"module\" src=\"/static/scripts/code-main.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
+        render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
         render.push_str("</head><body>");
         render.push_str(&self.render_cache.search);
         render.push_str(&self.render_cache.file_tree);
