@@ -8,6 +8,7 @@ pub enum SysDiffType {
     Advanced,
 }
 
+#[derive(Clone)]
 pub struct ServerConfig {
     pub pre_cache_all: bool,
     pub sys_diff_type: SysDiffType,
@@ -15,5 +16,4 @@ pub struct ServerConfig {
     pub results_dir: PathBuf,
     pub resource_dir: PathBuf,
     pub source_dir: Option<PathBuf>,
-    pub call_graph_enabled: bool,
 }

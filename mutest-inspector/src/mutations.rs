@@ -48,6 +48,7 @@ impl Range {
 /// data from several of the raw mutest output files into a single struct.
 pub(crate) struct Mutation {
     pub mutation_id: usize,
+    pub target_id: usize,
     pub mutation_op: String,
     pub name: String,
     pub starts: Range,
@@ -60,6 +61,7 @@ impl Mutation {
     pub fn new(mutation: mutest_json::mutations::Mutation, evaluation: &mutest_json::evaluation::EvaluationInfo) -> Self {
         Mutation {
             mutation_id: mutation.mutation_id.as_index(),
+            target_id: mutation.target_id.as_index(),
             mutation_op: mutation.mutation_op,
             name: mutation.display_name,
             starts: Range::new(mutation.origin_span.begin),

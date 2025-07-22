@@ -12,16 +12,20 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
+use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use actix_files::Files;
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use serde::de::{DeserializeOwned, Error as DeError};
+use serde::{Deserialize, Serialize};
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
+use mutest_json::{DefId, Idx, IdxVec};
 use mutest_json::mutations::*;
 use mutest_json::tests::*;
 use mutest_json::timings::*;
+use crate::mutations::Mutations;
 
 #[derive(Debug, Clone)]
 struct Metadata {
@@ -60,7 +64,9 @@ fn split_lines(data: &str) -> Vec<&str> {
 }
 
 pub struct AppState {
-    renderer: Mutex<renderer::Renderer>
+    renderer: Mutex<renderer::Renderer>,
+    call_graph: CallGraphInfo,
+    mutations: MutationsInfo,
 }
 
 async fn show_start(data: web::Data<AppState>) -> HttpResponse {
@@ -82,6 +88,85 @@ async fn show_file(data: web::Data<AppState>, file: web::Path<PathBuf,>) -> Http
             renderer.render_start_with_error(&format!("file not found: {}", file.display()))
         };
     }
+    HttpResponse::Ok().body(body)
+}
+
+#[derive(Deserialize)]
+struct TraceParams {
+    mutation_id: u32,
+}
+
+#[derive(Clone)]
+struct MonoCallTrace {
+    entry_point_id: EntryPointId,
+    nested_calls: Vec<CalleeId>,
+}
+
+/// CallTrace2
+#[derive(Hash, Eq, PartialEq)]
+struct DefCallTrace {
+    entry_point_id: EntryPointId,
+    nested_calls: Vec<DefId>,
+}
+
+async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
+    fn build_traces(call_graph: &CallGraphInfo, target_def_id: DefId, call_trace: &mut MonoCallTrace, call_traces: &mut Vec<MonoCallTrace>) {
+        let [.., callee_id] = &call_trace.nested_calls[..] else { return };
+        let callee = &call_graph.call_graph.callees[*callee_id];
+
+        if callee.def_id == target_def_id {
+            call_traces.push(call_trace.clone());
+            return;
+        }
+
+        for (nested_callee_id, _) in &callee.calls {
+            if call_trace.nested_calls.iter().any(|c| c == nested_callee_id) {
+                continue;
+            }
+
+            call_trace.nested_calls.push(*nested_callee_id);
+            build_traces(call_graph, target_def_id, call_trace, call_traces);
+            call_trace.nested_calls.pop();
+        }
+    }
+
+    let mutation = &data.mutations.mutations[MutationId(query.mutation_id)];
+    let target = &data.mutations.targets[mutation.target_id];
+    let mut call_traces: Vec<MonoCallTrace> = Vec::new();
+    for entry_point_name in target.reachable_from.keys() {
+        let Some(entry_point) = data.call_graph.call_graph.entry_points.iter().find(|e| &e.path == entry_point_name) else {
+            return HttpResponse::NotFound().finish()
+        };
+        for (callee_id, _) in &entry_point.calls {
+            let mut call_trace = MonoCallTrace { entry_point_id: entry_point.entry_point_id, nested_calls: vec![*callee_id] };
+            build_traces(&data.call_graph, target.def_id, &mut call_trace, &mut call_traces);
+        }
+    }
+    
+    let mut def_call_traces = HashSet::new();
+    
+    for call_trace in call_traces {
+        let nested_calls = call_trace.nested_calls.iter().map(|callee_id| {
+            let callee = &data.call_graph.call_graph.callees[*callee_id];
+            callee.def_id
+        }).collect();
+        def_call_traces.insert(DefCallTrace { entry_point_id: call_trace.entry_point_id, nested_calls });
+    }
+
+    let mut body = String::new();
+
+    for call_trace in &def_call_traces {
+        let entry_point = &data.call_graph.call_graph.entry_points[call_trace.entry_point_id];
+        write!(&mut body, "{} > ", entry_point.path);
+
+        for nested_call in &call_trace.nested_calls {
+            let nested_callee = &data.call_graph.definitions[*nested_call];
+            write!(&mut body, "{} > ", nested_callee.path.clone().unwrap_or(":_(".parse().unwrap()));
+        }
+
+        body.push_str("\n-----\n");
+    }
+
     HttpResponse::Ok().body(body)
 }
 
@@ -110,7 +195,7 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
         },
         None => mutations::get_source_file_paths(&mutations_by_file),
     };
-    let source_files = match conf.source_dir {
+    let source_files = match &conf.source_dir {
         Some(source_dir) => files::Files::new(&source_dir, paths.clone()),
         None => {
             let source_dir = PathBuf::from(&conf.results_dir.parent().unwrap().parent().unwrap());
@@ -140,12 +225,15 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
     println!("[mutest-report] get started: http://127.0.0.1:{}/", conf.port);
     let state = web::Data::new(AppState {
         renderer: Mutex::new(renderer),
+        call_graph: call_graph.unwrap().clone(),
+        mutations: res?.mutations,
     });
     HttpServer::new(move || {
         App::new()
             .app_data(state.clone())
-            .route("/file/{file:.*}", web::get().to(show_file))
             .route("/", web::get().to(show_start))
+            .route("/file/{file:.*}", web::get().to(show_file))
+            .route("/api/traces", web::get().to(get_traces))
             .service(
                 Files::new("/static", &conf.resource_dir.join("static"))
             )
