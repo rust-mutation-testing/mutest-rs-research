@@ -36,10 +36,6 @@ struct CargoCli {
     /// The path to the /assets directory in the server source code.
     #[arg(long, required = true)]
     resource_dir: PathBuf,
-    
-    /// Enables the experimental call graph viewing feature.
-    #[arg(long = "Zenable-cg", default_value_t = false)]
-    call_graph_enabled: bool,
 }
 
 #[tokio::main]
@@ -52,7 +48,6 @@ async fn main() {
         results_dir: args.results_dir,
         resource_dir: args.resource_dir,
         source_dir: args.source_dir,
-        call_graph_enabled: args.call_graph_enabled,
     };
     server(config).await.expect("Fatal: mutest server failed to start!");
 }
