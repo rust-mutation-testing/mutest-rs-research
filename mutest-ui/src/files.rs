@@ -14,7 +14,11 @@ impl Files {
     pub fn new(root: &PathBuf, paths: Vec<PathBuf>) -> Result<Self, Box<dyn std::error::Error>> {
         let mut files = HashMap::new();
         for path in paths {
-            let file_lines = split_lines(&read_file(&root.join(&path))?).into_iter().map(|e| e.to_owned()).collect();
+            let contents = match read_file(&root.join(&path)) {
+                Ok(f) => f,
+                Err(e) => continue,
+            };
+            let file_lines = split_lines(&contents).into_iter().map(|e| e.to_owned()).collect();
             files.insert(path, file_lines);
         }
         Ok(Self { files })
