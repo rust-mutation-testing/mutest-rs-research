@@ -15,4 +15,5 @@ pub struct ServerConfig {
     pub results_dir: PathBuf,
     pub resource_dir: PathBuf,
     pub source_dir: Option<PathBuf>,
+    pub call_graph_enabled: bool,
 }

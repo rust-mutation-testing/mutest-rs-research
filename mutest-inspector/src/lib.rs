@@ -8,6 +8,7 @@ mod file_tree;
 mod renderer;
 pub mod config;
 
+use std::collections::HashSet;
 use std::fs::File;
 use std::fs;
 use std::io::{stdout, BufReader, Write};
@@ -22,7 +23,7 @@ use mutest_json::mutations::*;
 use mutest_json::tests::*;
 use mutest_json::timings::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Metadata {
     call_graph: CallGraphInfo,
     evaluation: EvaluationInfo,
@@ -87,13 +88,28 @@ async fn show_file(data: web::Data<AppState>, file: web::Path<PathBuf,>) -> Http
 pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
     println!("[mutest-report] loading mutest results...");
     let res = read_all_metadata(&conf.results_dir);
-    let mutations_by_file = match res {
-        Ok(metadata) => mutations::streamline_mutations(metadata),
+    let mutations_by_file = match &res {
+        Ok(metadata) => mutations::streamline_mutations(metadata.clone()),
         Err(e) => panic!("{:?}", e),
+    };
+    let call_graph = match &res {
+        Ok(metadata) => Some(&metadata.call_graph),
+        Err(e) => None,
     };
 
     println!("[mutest-report] loading source files...");
-    let paths = mutations::get_source_file_paths(&mutations_by_file);
+    let paths = match call_graph {
+        Some(call_graph) => {
+            let mut paths: HashSet<PathBuf> = HashSet::new();
+            for definition in &call_graph.definitions {
+                if let Some(span) = &definition.span {
+                    paths.insert(span.path.clone());
+                }
+            }
+            paths.into_iter().collect()
+        },
+        None => mutations::get_source_file_paths(&mutations_by_file),
+    };
     let source_files = match conf.source_dir {
         Some(source_dir) => files::Files::new(&source_dir, paths.clone()),
         None => {
@@ -103,11 +119,12 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
     }.expect("failed to read source files from path");
 
     println!("[mutest-report] creating renderer...");
+    let ft = file_tree::FileTree::from_paths(&mutations_by_file.keys().cloned().collect());
     let mut renderer = renderer::Renderer::new(&conf.resource_dir, source_files.get_files_map(), mutations_by_file);
 
     println!("[mutest-report] caching interface components...");
     renderer.cache_mutations(conf.sys_diff_type);
-    renderer.cache_file_tree(file_tree::FileTree::from_paths(&paths));
+    renderer.cache_file_tree(ft);
     renderer.cache_search();
 
     if conf.pre_cache_all {
