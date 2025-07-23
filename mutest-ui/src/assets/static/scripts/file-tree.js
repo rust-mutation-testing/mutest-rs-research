@@ -20,8 +20,13 @@ class FileTree {
         this.el = fileTreeElement;
 
         // TODO: temp;
-        this.showBtn = document.getElementById('file-tree-show-btn');
-        this.hideBtn = document.getElementById('file-tree-hide-btn');
+        this.showBtn = document.getElementById('left-pane-show-btn');
+        this.hideBtn = document.getElementById('left-pane-hide-btn');
+
+        this.fileTreeTabBtn = document.getElementById('file-tree-tab-btn');
+        this.fileTreeTab = document.getElementById('file-tree-tab');
+        this.tracesTabBtn = document.getElementById('traces-tab-btn');
+        this.tracesTab = document.getElementById('traces-tab');
     }
 
     show() {
@@ -32,6 +37,31 @@ class FileTree {
     hide() {
         this.wrapper.classList.add('hidden');
         this.showBtn.classList.remove('hidden');
+    }
+
+    hideTab(btn, tab) {
+        btn.classList.remove('selected');
+        tab.classList.add('hidden');
+    }
+
+    hideAllTabs() {
+        this.hideTab(this.fileTreeTabBtn, this.fileTreeTab);
+        this.hideTab(this.tracesTabBtn, this.tracesTab);
+    }
+
+    showTab(btn, tab) {
+        btn.classList.add('selected');
+        tab.classList.remove('hidden');
+    }
+
+    showFileTreeTab() {
+        this.hideAllTabs();
+        this.showTab(this.fileTreeTabBtn, this.fileTreeTab);
+    }
+
+    showTracesTab() {
+        this.hideAllTabs();
+        this.showTab(this.tracesTabBtn, this.tracesTab);
     }
 
     /**
@@ -60,6 +90,14 @@ class FileTree {
 
         this.hideBtn.addEventListener('click', () => {
             this.hide();
+        });
+
+        this.fileTreeTabBtn.addEventListener('click', () => {
+            this.showFileTreeTab();
+        });
+
+        this.tracesTabBtn.addEventListener('click', () => {
+            this.showTracesTab();
         });
     }
 }

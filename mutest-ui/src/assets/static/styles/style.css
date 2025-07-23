@@ -367,6 +367,15 @@ table {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-shrink: 0;
+
+    &.selected {
+        background: var(--theme-color);
+
+        &:hover {
+            background: var(--theme-color);
+        }
+    }
 
     &:hover {
         background: var(--code-bg);
@@ -462,13 +471,21 @@ table {
         display: flex;
         padding: 10px;
         align-items: center;
-        justify-content: right; /* TODO: temp */
+        gap: 5px;
+
+        & > .spacer {
+            width: 100%;
+        }
     }
 
     & > .file-tree-container {
         height: var(--content-height);
         overflow: auto;
         padding: 10px;
+
+        &.hidden {
+            display: none;
+        }
     }
 }
 
@@ -770,5 +787,49 @@ table {
 
     &:hover {
         text-decoration: underline;
+    }
+}
+
+.default-text {
+    font-family: monospace;
+    color: var(--numbers-fg);
+}
+
+.inline-icon {
+    background: var(--numbers-bg);
+    border-radius: 5px;
+    padding: 3px;
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+
+    & > .generic-icon {
+        opacity: 0.6;
+    }
+}
+
+.loading {
+    font-family: monospace;
+    color: var(--numbers-fg);
+
+    &::after {
+        content: "";
+        display: inline-block;
+        animation: loader 1.5s steps(4) infinite;
+    }
+}
+
+@keyframes loader {
+    0% {
+        content: "";
+    }
+    25% {
+        content: ".";
+    }
+    50% {
+        content: "..";
+    }
+    75% {
+        content: "...";
     }
 }
