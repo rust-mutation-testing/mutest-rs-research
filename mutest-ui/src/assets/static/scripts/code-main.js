@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let ft = new FileTree(
         document.getElementById('file-tree-wrapper'),
         document.getElementById('file-tree'));
-    ft.init();
 
     let ms = new MutationSwitcher(
         document.getElementById('changer'),
@@ -20,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
         e.addEventListener('click', async function (_e) {
             _e.stopPropagation();
             ft.showLoadingTracesTab();
-            console.log(`/api/traces?mutation_id=${e.closest("TBODY").id}`);
             let response = await fetch(`/api/traces?mutation_id=${e.closest("TBODY").id}`);
             let text = await response.text();
             ft.setLoadedTracesTab(text);
