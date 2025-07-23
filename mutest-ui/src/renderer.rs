@@ -98,18 +98,23 @@ fn write_detection_status_marker(html_out: &mut String, detection_status: &Optio
 }
 
 fn write_detection_status_mini_marker(html_out: &mut String, detection_status: &Option<DetectionStatus>) {
-    write!(html_out, "<div class=\"detection-status-marker mini {}\"></div>", get_detection_status(detection_status));
+    write!(html_out, "<div class=\"detection-status-marker mini {0}\" title=\"{0}\"></div>", get_detection_status(detection_status));
 }
 
-fn write_code_tr_open(html_out: &mut String, line_type: &DiffType, detection_status: &Option<DetectionStatus>, line_number: usize) {
+fn write_code_tr_open(html_out: &mut String, line_type: &DiffType, detection_status: &Option<DetectionStatus>, line_number: usize, traces_button: bool) {
     write!(html_out, "<tr class=\"line-wrapper {}\">", line_type.as_str());
-    html_out.push_str("<td class=\"detection-status");
+    html_out.push_str("<td class=\"line-controls");
     if line_number == 0 {
         html_out.push_str(" new")
     }
-    html_out.push_str("\">");
-    write_detection_status_marker(html_out, detection_status);
-    html_out.push_str("</td><td class=\"numbers");
+    html_out.push_str("\"><div class=\"controls-wrapper\">");
+    write_detection_status_mini_marker(html_out, detection_status);
+    if traces_button {
+        html_out.push_str("<button class=\"control-button\" title=\"Show call graph traces for this mutation\">");
+        write_icon(html_out, "tree.png");
+        html_out.push_str("</button>");
+    }
+    html_out.push_str("</div></td><td class=\"numbers");
     if line_number != 0 {
         write!(html_out, "\">{}", line_number);
     } else {
@@ -594,7 +599,7 @@ impl Renderer {
                 &None
             };
 
-            write_code_tr_open(html_out, &line.diff_type, detection, inc_or_zero(line.number));
+            write_code_tr_open(html_out, &line.diff_type, detection, inc_or_zero(line.number), idx == 0);
             html_out.push_str("<td class=\"line-content\">");
             for line_block in line.blocks {
                 self.highlight_block(&line_block, html_out, &mut highlighter);
@@ -827,7 +832,7 @@ impl Renderer {
         let mut mutation_changer = String::from("<div id=\"changer\" class=\"mutation-changer hidden\"><div class=\"mutation-changer-nav\"><h2 class=\"window-title\">Mutation Changer</h2><button id=\"mutation-changer-close-btn\" class=\"nav-button\">");
         write_icon(&mut mutation_changer, "x-mark.png");
         mutation_changer.push_str("</button></div><div id=\"changer-regions\" class=\"mutations-wrapper\">");
-        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 80px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
+        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 40px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
         render.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
@@ -889,7 +894,7 @@ impl Renderer {
                 }
             }
 
-            write_code_tr_open(&mut render, &DiffType::Unchanged, &None, i + 1);
+            write_code_tr_open(&mut render, &DiffType::Unchanged, &None, i + 1, false);
             render.push_str("<td class=\"line-content\">");
             self.highlight_line(&mut render, &mut highlighter, &file_lines[i]);
             render.push_str("</td>");
