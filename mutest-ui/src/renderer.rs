@@ -734,9 +734,10 @@ impl Renderer {
             html_out.push_str("<ul class=\"file-tree\">");
             for conflict in self.source_mutations.get(&path).unwrap() {
                 for mutation in &conflict.mutations {
-                    write!(html_out, "<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\">", mutation.display_id(), indentation_level);
+                    let escaped = html_escape::encode_text(&mutation.name);
+                    write!(html_out, "<li class=\"ft-mutation\" data-mutation-id=\"{}\"><div style=\"--level:{};\" class=\"mutation-name-wrapper\" title=\"{escaped}\">", mutation.display_id(), indentation_level);
                     write_detection_status_mini_marker(html_out, &mutation.detection_status);
-                    write!(html_out, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div></li>", mutation.display_id(), html_escape::encode_text(&mutation.name));
+                    write!(html_out, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{escaped}</div></div></li>", mutation.display_id());
                 }
             }
             html_out.push_str("</ul>");
@@ -761,9 +762,10 @@ impl Renderer {
         for (path, conflicts) in &self.source_mutations {
             for conflict in conflicts {
                 for mutation in &conflict.mutations {
-                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"/file/{}\">", mutation.display_id(), path.display());
+                    let escaped = html_escape::encode_text(&mutation.name);
+                    write!(search, "<div class=\"search-mutation\" data-mutation-id=\"{}\" data-file-path=\"/file/{}\" title=\"{escaped}\">", mutation.display_id(), path.display());
                     write_detection_status_mini_marker(&mut search, &mutation.detection_status);
-                    write!(search, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{}</div></div>", mutation.display_id(), html_escape::encode_text(&mutation.name));
+                    write!(search, "<div class=\"mid\">{}</div><div class=\"mutation-name\">{escaped}</div></div>", mutation.display_id());
                 }
             }
         }
