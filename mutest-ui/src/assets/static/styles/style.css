@@ -480,8 +480,10 @@ table {
 
     & > .file-tree-container {
         height: var(--content-height);
-        overflow: auto;
+        overflow-y: auto;
+        overflow-x: hidden;
         padding: 10px;
+        width: 100%;
 
         &.hidden {
             display: none;
@@ -831,5 +833,32 @@ table {
     }
     75% {
         content: "...";
+    }
+}
+
+.call-traces {
+    list-style: none;
+    width: 100%;
+
+    & > li {
+        height: 20px;
+        border-radius: 5px;
+        padding: 0 5px;
+        display: flex;
+        align-items: center;
+
+        & > .call-trace {
+            font-family: monospace;
+            width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            text-decoration: none;
+            color: #fff;
+        }
+
+        &:hover {
+            background: var(--theme-color);
+        }
     }
 }

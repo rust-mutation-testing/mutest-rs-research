@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::fmt::Write;
 use similar::{ChangeTag, TextDiff};
@@ -6,9 +6,11 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use uuid::Uuid;
+use mutest_json::call_graph::{CallGraph, CallGraphInfo};
+use mutest_json::Idx;
 use crate::config::SysDiffType;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{file_tree, split_lines};
+use crate::{file_tree, split_lines, DefCallTrace};
 
 /// Calculates the offset of a Range within its wider Conflict. This is crucial for mutations that
 /// are fewer lines than the region they are in.
@@ -919,5 +921,27 @@ impl Renderer {
         
         html_out.push_str(&render);
         self.render_cache.code.insert(path.clone(), render);
+    }
+
+    pub fn render_call_traces_component(&self, html_out: &mut String, mutation_id: u32, call_traces: &HashSet<DefCallTrace>, call_graph: &CallGraphInfo) {
+        write!(html_out, "<ul class=\"call-traces\">");
+        for call_trace in call_traces {
+            let entry_point = &call_graph.call_graph.entry_points[call_trace.entry_point_id];
+
+            let mut href = String::new();
+            write!(&mut href, "/trace?mutation_id={mutation_id}&callees=");
+
+            let mut content = String::new();
+            write!(&mut content, "{}", html_escape::encode_text(&entry_point.path));
+
+            for nested_call in &call_trace.nested_calls {
+                let nested_callee = &call_graph.definitions[*nested_call];
+                write!(&mut href, "{},", nested_callee.def_id.as_index());
+                write!(&mut content, " > {}", html_escape::encode_text(&nested_callee.path.clone().unwrap_or("unknown_path_err".parse().unwrap())));
+            }
+
+            write!(html_out, "<li><a class=\"call-trace\" href=\"{href}\" title=\"{content}\">{content}</a></li>");
+        }
+        write!(html_out, "</ul>");
     }
 }
