@@ -638,13 +638,26 @@ impl Renderer {
     /// Caches the file tree into the render_cache of the Renderer.
     pub fn cache_file_tree(&mut self, ft: file_tree::FileTree) {
         let mut file_tree = String::new();
-        file_tree.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\"><button id=\"file-tree-hide-btn\" class=\"nav-button\">");
+        file_tree.push_str("<div id=\"file-tree-wrapper\" class=\"file-tree-wrapper\"><div class=\"file-tree-header\">");
+        file_tree.push_str("<button id=\"file-tree-tab-btn\" class=\"nav-button selected\" title=\"Show the file tree\">");
+        write_icon(&mut file_tree, "folder.png");
+        file_tree.push_str("</button>");
+        file_tree.push_str("<button id=\"traces-tab-btn\" class=\"nav-button\" title=\"Show the call graph traces\">");
+        write_icon(&mut file_tree, "tree.png");
+        file_tree.push_str("</button>");
+        file_tree.push_str("<div class=\"spacer\"></div>");
+        file_tree.push_str("<button id=\"left-pane-hide-btn\" class=\"nav-button\">");
         write_icon(&mut file_tree, "sidebar.png");
-        write!(file_tree, "</button></div><div class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\" data-session-id=\"{}\">", Uuid::new_v4());
+        file_tree.push_str("</button></div>");
+        write!(file_tree, "<div id=\"file-tree-tab\" class=\"file-tree-container\"><ul id=\"file-tree\" class=\"file-tree\" data-session-id=\"{}\">", Uuid::new_v4());
         for node in ft.children() {
             self.render_file_tree_node(&mut file_tree, node, 0, "/file/");
         }
-        file_tree.push_str("</ul></div></div>");
+        file_tree.push_str("</ul></div><div id=\"traces-tab\" class=\"file-tree-container hidden\">");
+        file_tree.push_str("<p class=\"default-text\">Click on a call graph traces icon <span class=\"inline-icon\">");
+        write_icon(&mut file_tree, "tree.png");
+        file_tree.push_str("</span> to show traces in this tab.</p>");
+        file_tree.push_str("</div></div>");
         self.render_cache.file_tree = file_tree;
     }
 
@@ -788,7 +801,7 @@ impl Renderer {
         render.push_str(&self.render_cache.search);
         render.push_str(&self.render_cache.file_tree);
         render.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
-        render.push_str("<button id=\"file-tree-show-btn\" class=\"nav-button hidden\">");
+        render.push_str("<button id=\"left-pane-show-btn\" class=\"nav-button hidden\">");
         write_icon(&mut render, "sidebar.png");
         render.push_str("</button></div><div class=\"main-code-wrapper help-wrapper\"><div class=\"help\">");
         write_icon_with_class_list(&mut render, "ferris_bg.webp", "ferris-bg");
@@ -836,7 +849,7 @@ impl Renderer {
         let changer_columns = String::from("<colgroup><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
 
         render.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
-        render.push_str("<button id=\"file-tree-show-btn\" class=\"nav-button hidden\">");
+        render.push_str("<button id=\"left-pane-show-btn\" class=\"nav-button hidden\">");
         write_icon(&mut render, "sidebar.png");
         render.push_str("</button><div class=\"file-name\">");
         write_icon(&mut render, "ferris_64.png");
