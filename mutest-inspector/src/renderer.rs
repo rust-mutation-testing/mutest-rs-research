@@ -110,7 +110,7 @@ fn write_code_tr_open(html_out: &mut String, line_type: &DiffType, detection_sta
     html_out.push_str("\"><div class=\"controls-wrapper\">");
     write_detection_status_mini_marker(html_out, detection_status);
     if traces_button {
-        html_out.push_str("<button class=\"control-button\" title=\"Show call graph traces for this mutation\">");
+        html_out.push_str("<button class=\"show-trace-btn control-button\" title=\"Show call graph traces for this mutation\">");
         write_icon(html_out, "tree.png");
         html_out.push_str("</button>");
     }
@@ -820,7 +820,6 @@ impl Renderer {
         write!(render, "<title>Mutest Report - {}</title>", path.file_name().unwrap().display());
         render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
         render.push_str("<script type=\"module\" src=\"/static/scripts/code-main.js\"></script>");
-        render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
         render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
         render.push_str("</head><body>");
