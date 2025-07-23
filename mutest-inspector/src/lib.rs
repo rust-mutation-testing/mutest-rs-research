@@ -155,16 +155,9 @@ async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -
 
     let mut body = String::new();
 
-    for call_trace in &def_call_traces {
-        let entry_point = &data.call_graph.call_graph.entry_points[call_trace.entry_point_id];
-        write!(&mut body, "{} > ", entry_point.path);
-
-        for nested_call in &call_trace.nested_calls {
-            let nested_callee = &data.call_graph.definitions[*nested_call];
-            write!(&mut body, "{} > ", nested_callee.path.clone().unwrap_or(":_(".parse().unwrap()));
-        }
-
-        body.push_str("\n-----\n");
+    {
+        let mut renderer = data.renderer.lock().unwrap();
+        renderer.render_call_traces_component(&mut body, query.mutation_id, &def_call_traces, &data.call_graph);
     }
 
     HttpResponse::Ok().body(body)
