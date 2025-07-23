@@ -64,6 +64,16 @@ class FileTree {
         this.showTab(this.tracesTabBtn, this.tracesTab);
     }
 
+    showLoadingTracesTab() {
+        this.hideAllTabs();
+        this.tracesTab.innerHTML = '<div class="loading">Loading traces</div>';
+        this.showTab(this.tracesTabBtn, this.tracesTab);
+    }
+
+    setLoadedTracesTab(content) {
+        this.tracesTab.innerHTML = content;
+    }
+
     /**
      * returns the file path associated with a parent element of the mutation in the file tree.
      * @param {HTMLElement} e
