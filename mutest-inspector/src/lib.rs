@@ -109,6 +109,11 @@ struct DefCallTrace {
     nested_calls: Vec<DefId>,
 }
 
+struct DefTraceGroup {
+    entry_point_id: EntryPointId,
+    nested_traces: Vec<Vec<DefId>>,
+}
+
 async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
     fn build_traces(call_graph: &CallGraphInfo, target_def_id: DefId, call_trace: &mut MonoCallTrace, call_traces: &mut Vec<MonoCallTrace>) {
         let [.., callee_id] = &call_trace.nested_calls[..] else { return };
@@ -153,11 +158,26 @@ async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -
         def_call_traces.insert(DefCallTrace { entry_point_id: call_trace.entry_point_id, nested_calls });
     }
 
+    let mut call_trace_groups: Vec<DefTraceGroup> = Vec::new();
+
+    'outer: for call_trace in &def_call_traces {
+        for call_trace_group in &mut call_trace_groups {
+            if call_trace_group.entry_point_id == call_trace.entry_point_id {
+                call_trace_group.nested_traces.push(call_trace.nested_calls.clone());
+                continue 'outer;
+            }
+        }
+        call_trace_groups.push(DefTraceGroup { 
+            entry_point_id: call_trace.entry_point_id,
+            nested_traces: vec![call_trace.nested_calls.clone()]
+        });
+    }
+
     let mut body = String::new();
 
     {
         let mut renderer = data.renderer.lock().unwrap();
-        renderer.render_call_traces_component(&mut body, query.mutation_id, &def_call_traces, &data.call_graph);
+        renderer.render_call_traces_component(&mut body, query.mutation_id, &call_trace_groups, &data.call_graph);
     }
 
     HttpResponse::Ok().body(body)

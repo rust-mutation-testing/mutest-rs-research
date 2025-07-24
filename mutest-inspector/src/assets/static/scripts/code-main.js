@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let response = await fetch(`/api/traces?mutation_id=${e.closest("TBODY").id}`);
             let text = await response.text();
             ft.setLoadedTracesTab(text);
+            ft.setupTogglesForTracesTab();
         });
     });
 });

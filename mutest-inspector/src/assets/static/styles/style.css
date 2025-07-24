@@ -496,6 +496,7 @@ table {
 
     & > .ft-node {
         & > .node-content-wrapper {
+            --toggle-width: 20px;
             padding-left: calc(20px * var(--level));
             display: flex;
             gap: 4px;
@@ -507,7 +508,7 @@ table {
             }
 
             & > .toggle {
-                width: 20px;
+                width: var(--toggle-width);
                 border: none;
                 background: none;
                 outline: none;
@@ -516,6 +517,7 @@ table {
                 display: flex;
                 justify-content: center;
                 align-items: center;
+                flex-shrink: 0;
 
                 & > .expanded {
                     display: none;
@@ -536,13 +538,15 @@ table {
                 align-items: center;
                 user-select: none;
                 cursor: pointer;
-                width: 100%;
+                width: calc(100% - var(--toggle-width));
                 padding-right: 3px;
                 text-decoration: none;
 
                 & > .node-value {
                     font-family: monospace;
                     color: #fff;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
 
                 & > .no-mutations {
@@ -606,6 +610,43 @@ table {
                 overflow: hidden;
                 white-space: nowrap;
                 text-overflow: ellipsis;
+            }
+        }
+    }
+
+    & > .ft-text {
+        & > .text-wrapper {
+            display: flex;
+            align-items: center;
+            padding-left: calc(20px * var(--level));
+            height: 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            gap: 6px;
+
+            &:hover {
+                background: var(--theme-color);
+
+                & > .text-icon {
+                    opacity: 1;
+                }
+
+                & > .text-link {
+                    color: #fff;
+                }
+            }
+
+            & > .text-icon {
+                opacity: 0.4;
+            }
+
+            & > .text-link {
+                font-family: monospace;
+                color: var(--numbers-fg);
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                text-decoration: none;
             }
         }
     }
@@ -833,32 +874,5 @@ table {
     }
     75% {
         content: "...";
-    }
-}
-
-.call-traces {
-    list-style: none;
-    width: 100%;
-
-    & > li {
-        height: 20px;
-        border-radius: 5px;
-        padding: 0 5px;
-        display: flex;
-        align-items: center;
-
-        & > .call-trace {
-            font-family: monospace;
-            width: 100%;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            text-decoration: none;
-            color: #fff;
-        }
-
-        &:hover {
-            background: var(--theme-color);
-        }
     }
 }

@@ -74,6 +74,12 @@ class FileTree {
         this.tracesTab.innerHTML = content;
     }
 
+    setupTogglesForTracesTab() {
+        [...this.tracesTab.getElementsByClassName('toggle')].map(e => {
+            e.addEventListener('click', () => fileNodeToggle(e));
+        });
+    }
+
     /**
      * returns the file path associated with a parent element of the mutation in the file tree.
      * @param {HTMLElement} e
