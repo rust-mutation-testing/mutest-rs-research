@@ -10,7 +10,7 @@ use mutest_json::call_graph::{CallGraph, CallGraphInfo};
 use mutest_json::Idx;
 use crate::config::SysDiffType;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{file_tree, split_lines, DefCallTrace};
+use crate::{file_tree, split_lines, DefCallTrace, DefTraceGroup};
 
 /// Calculates the offset of a Range within its wider Conflict. This is crucial for mutations that
 /// are fewer lines than the region they are in.
@@ -925,24 +925,37 @@ impl Renderer {
         self.render_cache.code.insert(path.clone(), render);
     }
 
-    pub fn render_call_traces_component(&self, html_out: &mut String, mutation_id: u32, call_traces: &HashSet<DefCallTrace>, call_graph: &CallGraphInfo) {
-        write!(html_out, "<ul class=\"call-traces\">");
+    pub fn render_call_traces_component(&self, html_out: &mut String, mutation_id: u32, call_traces: &Vec<DefTraceGroup>, call_graph: &CallGraphInfo) {
+        write!(html_out, "<ul class=\"file-tree\">");
         for call_trace in call_traces {
             let entry_point = &call_graph.call_graph.entry_points[call_trace.entry_point_id];
+            let escaped_entry = html_escape::encode_text(&entry_point.path);
+            
+            write!(html_out, "<li class=\"ft-node expanded\"><div style=\"--level:0;\" class=\"node-content-wrapper\"><button class=\"toggle\">");
+            write_icon_with_class_list(html_out, "chevron-right.png", "collapsed");
+            write_icon_with_class_list(html_out, "chevron-down.png", "expanded");
+            write!(html_out, "</button><div class=\"node-value-wrapper\"><div class=\"node-value\" title=\"{escaped_entry}\">{escaped_entry}</div></div></div><ul class=\"file-tree\">");
 
-            let mut href = String::new();
-            write!(&mut href, "/trace?mutation_id={mutation_id}&callees=");
+            for nested_trace in &call_trace.nested_traces {
+                let mut href = String::new();
+                write!(&mut href, "/trace?mutation_id={mutation_id}&callees=");
 
-            let mut content = String::new();
-            write!(&mut content, "{}", html_escape::encode_text(&entry_point.path));
+                let mut content = String::new();
 
-            for nested_call in &call_trace.nested_calls {
-                let nested_callee = &call_graph.definitions[*nested_call];
-                write!(&mut href, "{},", nested_callee.def_id.as_index());
-                write!(&mut content, " > {}", html_escape::encode_text(&nested_callee.path.clone().unwrap_or("unknown_path_err".parse().unwrap())));
+                for nested_call in nested_trace {
+                    if content != String::new() {
+                        content.push_str(" > ");
+                    }
+                    let nested_callee = &call_graph.definitions[*nested_call];
+                    write!(&mut href, "{},", nested_callee.def_id.as_index());
+                    write!(&mut content, "{}", html_escape::encode_text(&nested_callee.path.clone().unwrap_or("unknown_path_err".parse().unwrap())));
+                }
+
+                write!(html_out, "<li class=\"ft-text\"><div style=\"--level:1;\" class=\"text-wrapper\"><div class=\"text-icon\">");
+                write_icon(html_out, "tree.png");
+                write!(html_out, "</div><a class=\"text-link\" href=\"{href}\" title=\"{escaped_entry} > {content}\">{content}</a></div></li>");
             }
-
-            write!(html_out, "<li><a class=\"call-trace\" href=\"{href}\" title=\"{content}\">{content}</a></li>");
+            write!(html_out, "</ul></li>");
         }
         write!(html_out, "</ul>");
     }
