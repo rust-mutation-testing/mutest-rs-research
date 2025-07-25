@@ -7,10 +7,10 @@ use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use uuid::Uuid;
 use mutest_json::call_graph::{CallGraph, CallGraphInfo};
-use mutest_json::{Idx, Span};
+use mutest_json::{Definition, Idx, Span};
 use crate::config::SysDiffType;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{file_tree, split_lines, DefCallTrace, DefTraceGroup};
+use crate::{file_tree, split_lines, DefCallTrace, DefTraceGroup, DisplayCallee};
 
 /// Calculates the offset of a Range within its wider Conflict. This is crucial for mutations that
 /// are fewer lines than the region they are in.
@@ -962,13 +962,14 @@ impl Renderer {
         write!(html_out, "</ul>");
     }
 
-    pub fn render_trace(&self, mutation_id: u32, callees: Vec<Span>) -> String {
+    pub fn render_trace(&self, mutation_id: u32, callees: Vec<DisplayCallee>) -> String {
         let mut render = String::from("<!DOCTYPE html><html><head>");
         render.push_str("<meta charset=\"utf-8\">");
         write!(render, "<title>Mutest Report - Viewing Trace for Mutation {mutation_id}</title>");
         render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
         render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/trace-main.js\"></script>");
         render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
         render.push_str("</head><body>");
         render.push_str(&self.render_cache.search);
@@ -982,41 +983,77 @@ impl Renderer {
         render.push_str("</button><div class=\"file-name\">");
         write_icon(&mut render, "ferris_64.png");
         write!(render, "Trace for Mutation {mutation_id}</div></div>");
-        render.push_str("<div class=\"main-code-wrapper\"><table id=\"code-table\" class=\"main-code-table\">");
+        render.push_str("<div class=\"main-code-wrapper\"><table id=\"code-table\" class=\"main-code-table hidden\">");
         render.push_str(&standard_columns);
         for callee in callees {
-            write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</div></td></tr>",
-                   PathBuf::from("/file").join(&callee.path).display(),callee.path.display());
-
-            match self.source_files.get(&callee.path) {
-                Some(source_file) => {
-                    let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
-                    let mut line_number = callee.begin.0;
-                    for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
-                        // TODO: convert this to line block rendering
-                        write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
-                        render.push_str("<td class=\"line-content\">");
-                        // self.highlight_line(&mut render, &mut highlighter, &line);
-                        self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
-                        self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse().unwrap(), diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
-                        self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
-                        render.push_str("</td>");
-                        write_tr_close(&mut render);
-                        line_number += 1;
-                    }
-                }
-                None => {
+            match callee {
+                DisplayCallee::Incomplete(def_path, callee_name) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\">Definition <div class=\"inline-code\">{}</div> calls <div class=\"inline-code\">{}</div></td></tr>", def_path, callee_name);
                     render.push_str("<tr><td></td><td></td><td class=\"error-wrapper\">");
                     write_icon(&mut render, "error.png");
                     render.push_str("<h3 class=\"error-text\">Unable to load source file</h3>");
                     render.push_str("</td></tr>");
                 }
+                DisplayCallee::Complete(callee, (endl, _), def_name) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a> calls <div class=\"inline-code\">{}</div></td></tr>",
+                           PathBuf::from("/file").join(&callee.path).display(),callee.path.display(), def_name);
+
+                    match self.source_files.get(&callee.path) {
+                        Some(source_file) => {
+                            let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
+                            let mut line_number = callee.begin.0;
+                            render.push_str("<tbody>");
+                            for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
+                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                render.push_str("<td class=\"line-content\">");
+                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse().unwrap(), diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                render.push_str("</td>");
+                                write_tr_close(&mut render);
+                                line_number += 1;
+                            }
+                            for line in &source_file[callee.end.0..=endl - 1] {
+                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                render.push_str("<td class=\"line-content\">");
+                                self.highlight_line(&mut render, &mut highlighter, line);
+                                render.push_str("</td>");
+                                write_tr_close(&mut render);
+                                line_number += 1;
+                            }
+                            render.push_str("</tbody>");
+                        }
+                        None => {
+                            render.push_str("<tr><td></td><td></td><td class=\"error-wrapper\">");
+                            write_icon(&mut render, "error.png");
+                            render.push_str("<h3 class=\"error-text\">Unable to load source file</h3>");
+                            render.push_str("</td></tr>");
+                        }
+                    }
+                }
+                DisplayCallee::Mutated(target, (endl, _), mutation_id) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a></td></tr>",
+                           PathBuf::from("/file").join(&target.path).display(), target.path.display());
+                    
+                    if let Some(source_file) = self.source_files.get(&target.path) {
+                        render.push_str("<tbody>");
+                        let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
+                        let mut line_number = target.begin.0;
+                        for line in &source_file[target.begin.0 - 1..endl - 1] {
+                            write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                            render.push_str("<td class=\"line-content\">");
+                            self.highlight_line(&mut render, &mut highlighter, line);
+                            render.push_str("</td>");
+                            write_tr_close(&mut render);
+                            line_number += 1;
+                        }
+                        render.push_str("</tbody>");
+                        render.push_str(&self.render_cache.mutations[mutation_id.as_index()]);
+                    }
+                }
             }
         }
-        render.push_str(&self.render_cache.mutations[mutation_id as usize - 1]);
-        // TODO: could put the trace path (a > b > c ...) in the status bar
         write!(render, "</tbody></table></div><div class=\"status-bar\"><div class=\"status-text\">Trace for Mutation {mutation_id}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">/</span> to search</div></div></div>");
-
         render.push_str("</body></html>");
         render
     }
