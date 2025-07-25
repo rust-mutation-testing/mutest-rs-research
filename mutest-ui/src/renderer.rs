@@ -7,7 +7,7 @@ use syntect::highlighting::{Style, Theme, ThemeSet};
 use syntect::parsing::{SyntaxReference, SyntaxSet};
 use uuid::Uuid;
 use mutest_json::call_graph::{CallGraph, CallGraphInfo};
-use mutest_json::Idx;
+use mutest_json::{Idx, Span};
 use crate::config::SysDiffType;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
 use crate::{file_tree, split_lines, DefCallTrace, DefTraceGroup};
@@ -57,6 +57,7 @@ pub enum DiffType {
     New,
     Old,
     Unchanged,
+    DefSpan,
 }
 
 impl DiffType {
@@ -73,6 +74,7 @@ impl DiffType {
         match self {
             DiffType::New => "insert",
             DiffType::Old => "remove",
+            DiffType::DefSpan => "def-span",
             DiffType::Unchanged => "",
         }
     }
@@ -615,7 +617,7 @@ impl Renderer {
     /// be syntax highlighted.
     fn highlight_block(&self, line_block: &LineBlock, html_out: &mut String, highlighter: &mut HighlightLines) {
         match line_block.diff_type {
-            DiffType::New | DiffType::Old => {
+            DiffType::New | DiffType::Old | DiffType::DefSpan => {
                 let _ = write!(html_out, "<span class=\"inline-diff {}\">", line_block.diff_type.as_str());
             },
             DiffType::Unchanged => {},
@@ -624,7 +626,7 @@ impl Renderer {
         self.highlight_line(html_out, highlighter, &line_block.text);
 
         match line_block.diff_type {
-            DiffType::New | DiffType::Old => html_out.push_str("</span>"),
+            DiffType::New | DiffType::Old | DiffType::DefSpan => html_out.push_str("</span>"),
             DiffType::Unchanged => {}
         }
     }
@@ -938,7 +940,7 @@ impl Renderer {
 
             for nested_trace in &call_trace.nested_traces {
                 let mut href = String::new();
-                write!(&mut href, "/trace?mutation_id={mutation_id}&callees=");
+                write!(&mut href, "/trace?mutation_id={mutation_id}&entry_point_id={}&definition_ids=", entry_point.entry_point_id.as_index());
 
                 let mut content = String::new();
 
@@ -958,5 +960,64 @@ impl Renderer {
             write!(html_out, "</ul></li>");
         }
         write!(html_out, "</ul>");
+    }
+
+    pub fn render_trace(&self, mutation_id: u32, callees: Vec<Span>) -> String {
+        let mut render = String::from("<!DOCTYPE html><html><head>");
+        render.push_str("<meta charset=\"utf-8\">");
+        write!(render, "<title>Mutest Report - Viewing Trace for Mutation {mutation_id}</title>");
+        render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
+        render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
+        render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
+        render.push_str("</head><body>");
+        render.push_str(&self.render_cache.search);
+        render.push_str(&self.render_cache.file_tree);
+
+        // TODO: this is repeated code from above so can be refactored.
+        let standard_columns = String::from("<colgroup><col span=\"1\" style=\"width: 40px;\"><col span=\"1\" style=\"width: 50px;\"><col span=\"1\" style=\"width: auto;\"></colgroup>");
+        render.push_str("<div class=\"code-wrapper\"><div class=\"code-header\">");
+        render.push_str("<button id=\"left-pane-show-btn\" class=\"nav-button hidden\">");
+        write_icon(&mut render, "sidebar.png");
+        render.push_str("</button><div class=\"file-name\">");
+        write_icon(&mut render, "ferris_64.png");
+        write!(render, "Trace for Mutation {mutation_id}</div></div>");
+        render.push_str("<div class=\"main-code-wrapper\"><table id=\"code-table\" class=\"main-code-table\">");
+        render.push_str(&standard_columns);
+        for callee in callees {
+            write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</div></td></tr>",
+                   PathBuf::from("/file").join(&callee.path).display(),callee.path.display());
+
+            match self.source_files.get(&callee.path) {
+                Some(source_file) => {
+                    let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
+                    let mut line_number = callee.begin.0;
+                    for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
+                        // TODO: convert this to line block rendering
+                        write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                        render.push_str("<td class=\"line-content\">");
+                        // self.highlight_line(&mut render, &mut highlighter, &line);
+                        self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                        self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse().unwrap(), diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
+                        self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                        render.push_str("</td>");
+                        write_tr_close(&mut render);
+                        line_number += 1;
+                    }
+                }
+                None => {
+                    render.push_str("<tr><td></td><td></td><td class=\"error-wrapper\">");
+                    write_icon(&mut render, "error.png");
+                    render.push_str("<h3 class=\"error-text\">Unable to load source file</h3>");
+                    render.push_str("</td></tr>");
+                }
+            }
+        }
+        render.push_str(&self.render_cache.mutations[mutation_id as usize - 1]);
+        // TODO: could put the trace path (a > b > c ...) in the status bar
+        write!(render, "</tbody></table></div><div class=\"status-bar\"><div class=\"status-text\">Trace for Mutation {mutation_id}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">/</span> to search</div></div></div>");
+
+        render.push_str("</body></html>");
+        render
     }
 }
