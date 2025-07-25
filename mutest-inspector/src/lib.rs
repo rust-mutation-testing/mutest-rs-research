@@ -1,3 +1,4 @@
+#![feature(array_windows)]
 #![allow(unused)]
 
 extern crate core;
@@ -8,9 +9,9 @@ mod file_tree;
 mod renderer;
 pub mod config;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::fs;
+use std::{fs, iter};
 use std::io::{stdout, BufReader, Write};
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -21,7 +22,7 @@ use serde::de::{DeserializeOwned, Error as DeError};
 use serde::{Deserialize, Serialize};
 use mutest_json::call_graph::*;
 use mutest_json::evaluation::*;
-use mutest_json::{DefId, Idx, IdxVec};
+use mutest_json::{DefId, Idx, IdxVec, Span};
 use mutest_json::mutations::*;
 use mutest_json::tests::*;
 use mutest_json::timings::*;
@@ -190,24 +191,67 @@ struct TraceParams {
     definition_ids: String,
 }
 
+pub enum DisplayCallee {
+    Complete(Span, (usize, usize), String),
+    Incomplete(String, String),
+    Mutated(Span, (usize, usize), MutationId),
+}
+
 async fn get_trace(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
+    fn get_last_ep_call_span(entry_point_id: EntryPointId, callee_def_id: DefId, call_graph: &CallGraph) -> Option<Span> {
+        call_graph.entry_points[entry_point_id].calls.iter()
+            .filter(|(cid, _)| call_graph.callees[**cid].def_id == callee_def_id)
+            .map(|(_, ci)| ci.iter().map(|c| &c.span))
+            .flatten()
+            .flatten()
+            .max_by(|a, b| Ord::cmp(&a.end.0, &b.end.0))
+            .cloned()
+    }
+
+    fn get_last_def_call_span(body_def_id: DefId, callee_def_id: DefId, call_graph: &CallGraph) -> Option<Span> {
+        call_graph.callees.iter()
+            .filter(|c| c.def_id == body_def_id)
+            .flat_map(|c| c.calls.iter()
+                .filter(|(cid, _)| call_graph.callees[**cid].def_id == callee_def_id))
+            .flat_map(|(_, ci)| ci.iter().map(|c| &c.span))
+            .flatten()
+            .max_by(|a, b| Ord::cmp(&a.end.0, &b.end.0))
+            .cloned()
+    }
+
     let definition_ids: Vec<DefId> = query.definition_ids.split(",").filter_map(|i| i.parse().ok()).map(|u| DefId(u)).collect();
     let mut body = String::new();
-    let mut spans = Vec::new();
+    let mut spans: Vec<DisplayCallee> = Vec::new();
+    
+    if definition_ids.is_empty() {
+        return HttpResponse::NotFound().finish();
+    }
     
     let Some(entry_point) = data.call_graph.call_graph.entry_points.iter().find(|e| e.entry_point_id == EntryPointId(query.entry_point_id)) else {
         return HttpResponse::NotFound().finish()
     };
-    spans.push(entry_point.span.clone().unwrap());
-
-    for def_id in &definition_ids[1..] {
-        let def = &data.call_graph.definitions[*def_id];
-        // TODO: still convey what this was
-        if let Some(span) = def.span.clone() {
-            spans.push(span);
-        }
-        // TODO: def.name print alongside span in header
+    let ep_span = get_last_ep_call_span(entry_point.entry_point_id, definition_ids[0], &data.call_graph.call_graph);
+    let callee_name = data.call_graph.definitions[definition_ids[0]].name.clone().unwrap_or_default();
+    match (&entry_point.span, ep_span) {
+        (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, callee_name)),
+        (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, callee_name)),
+        _ => spans.push(DisplayCallee::Incomplete(entry_point.path.clone(), callee_name)),
     }
+
+    for [def_id, next_def_id] in definition_ids.array_windows::<2>() {
+        let def = &data.call_graph.definitions[*def_id];
+        let def_span = get_last_def_call_span(*def_id, *next_def_id, &data.call_graph.call_graph);
+        let next_callee_name = data.call_graph.definitions[*next_def_id].name.clone().unwrap_or_default();
+        match (&def.span, def_span) {
+            (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, next_callee_name)),
+            (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, next_callee_name)),
+            _ => spans.push(DisplayCallee::Incomplete(def.path.clone().unwrap_or_default(), next_callee_name)),
+        }
+    }
+    
+    let target_def = &data.call_graph.definitions[*definition_ids.last().unwrap()];
+    let mutation_id = MutationId(query.mutation_id);
+    spans.push(DisplayCallee::Mutated(target_def.span.clone().unwrap(), data.mutations.mutations[mutation_id].origin_span.end, mutation_id));
 
     { 
         let mut renderer = data.renderer.lock().unwrap();
