@@ -92,7 +92,7 @@ async fn show_file(data: web::Data<AppState>, file: web::Path<PathBuf,>) -> Http
 }
 
 #[derive(Deserialize)]
-struct TraceParams {
+struct TracesParams {
     mutation_id: u32,
 }
 
@@ -114,7 +114,7 @@ struct DefTraceGroup {
     nested_traces: Vec<Vec<DefId>>,
 }
 
-async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
+async fn get_traces(data: web::Data<AppState>, query: web::Query<TracesParams>) -> HttpResponse {
     fn build_traces(call_graph: &CallGraphInfo, target_def_id: DefId, call_trace: &mut MonoCallTrace, call_traces: &mut Vec<MonoCallTrace>) {
         let [.., callee_id] = &call_trace.nested_calls[..] else { return };
         let callee = &call_graph.call_graph.callees[*callee_id];
@@ -183,6 +183,40 @@ async fn get_traces(data: web::Data<AppState>, query: web::Query<TraceParams>) -
     HttpResponse::Ok().body(body)
 }
 
+#[derive(Deserialize, Debug)]
+struct TraceParams {
+    mutation_id: u32,
+    entry_point_id: u32,
+    definition_ids: String,
+}
+
+async fn get_trace(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
+    let definition_ids: Vec<DefId> = query.definition_ids.split(",").filter_map(|i| i.parse().ok()).map(|u| DefId(u)).collect();
+    let mut body = String::new();
+    let mut spans = Vec::new();
+    
+    let Some(entry_point) = data.call_graph.call_graph.entry_points.iter().find(|e| e.entry_point_id == EntryPointId(query.entry_point_id)) else {
+        return HttpResponse::NotFound().finish()
+    };
+    spans.push(entry_point.span.clone().unwrap());
+
+    for def_id in &definition_ids[1..] {
+        let def = &data.call_graph.definitions[*def_id];
+        // TODO: still convey what this was
+        if let Some(span) = def.span.clone() {
+            spans.push(span);
+        }
+        // TODO: def.name print alongside span in header
+    }
+
+    { 
+        let mut renderer = data.renderer.lock().unwrap();
+        body = renderer.render_trace(query.mutation_id, spans);
+    }
+    
+    HttpResponse::Ok().body(body)
+}
+
 pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
     println!("[mutest-report] loading mutest results...");
     let res = read_all_metadata(&conf.results_dir);
@@ -247,6 +281,7 @@ pub async fn server(conf: config::ServerConfig) -> std::io::Result<()> {
             .route("/", web::get().to(show_start))
             .route("/file/{file:.*}", web::get().to(show_file))
             .route("/api/traces", web::get().to(get_traces))
+            .route("/trace", web::get().to(get_trace))
             .service(
                 Files::new("/static", &conf.resource_dir.join("static"))
             )

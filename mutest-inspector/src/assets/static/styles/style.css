@@ -21,6 +21,7 @@
     --inline-delete: rgba(255, 0, 0, 0.4);
     --line-insert: rgba(0, 128, 0, 0.24);
     --inline-insert: rgba(0, 128, 0, 0.7);
+    --inline-def-span: rgba(74, 199, 227, 0.18);
 
     --level: 0;
 }
@@ -191,6 +192,10 @@ table {
 
     &.insert {
         background: var(--inline-insert);
+    }
+
+    &.def-span {
+        background: var(--inline-def-span);
     }
 }
 
@@ -874,5 +879,39 @@ table {
     }
     75% {
         content: "...";
+    }
+}
+
+.error-wrapper {
+    background: var(--line-delete);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 50px;
+
+    & > .error-text {
+        font-family: monospace;
+        color: #fff;
+        font-size: 13px;
+    }
+}
+
+.file-header {
+    border: solid 1px var(--border-color);
+    background: var(--main-bg);
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+
+    & > .file-path {
+        font-family: monospace;
+        color: #fff;
+        opacity: 0.4;
+        text-decoration: underline;
+
+        &:hover {
+            opacity: 0.8;
+        }
     }
 }
