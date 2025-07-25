@@ -967,7 +967,6 @@ impl Renderer {
         render.push_str("<meta charset=\"utf-8\">");
         write!(render, "<title>Mutest Report - Viewing Trace for Mutation {mutation_id}</title>");
         render.push_str("<link rel=\"stylesheet\" href=\"/static/styles/style.css\" />");
-        render.push_str("<script type=\"module\" src=\"/static/scripts/file-tree.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/search.js\"></script>");
         render.push_str("<script type=\"module\" src=\"/static/scripts/trace-main.js\"></script>");
         render.push_str("<link rel=\"icon\" type=\"image/x-icon\" href=\"/static/icons/ferris_64.png\">");
@@ -987,16 +986,16 @@ impl Renderer {
         render.push_str(&standard_columns);
         for callee in callees {
             match callee {
-                DisplayCallee::Incomplete(def_path, callee_name) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\">Definition <div class=\"inline-code\">{}</div> calls <div class=\"inline-code\">{}</div></td></tr>", def_path, callee_name);
+                DisplayCallee::Incomplete(def_path, next_callee_name) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><p class=\"generic-text\">Definition <span class=\"inline-code\">{def_path}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></td></tr>");
                     render.push_str("<tr><td></td><td></td><td class=\"error-wrapper\">");
                     write_icon(&mut render, "error.png");
                     render.push_str("<h3 class=\"error-text\">Unable to load source file</h3>");
                     render.push_str("</td></tr>");
                 }
-                DisplayCallee::Complete(callee, (endl, _), def_name) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a> calls <div class=\"inline-code\">{}</div></td></tr>",
-                           PathBuf::from("/file").join(&callee.path).display(),callee.path.display(), def_name);
+                DisplayCallee::Complete(callee, (endl, _), callee_name, next_callee_name) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\"><span class=\"inline-code function\">{callee_name}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></p></td></tr>",
+                           PathBuf::from("/file").join(&callee.path).display(), callee.path.display());
 
                     match self.source_files.get(&callee.path) {
                         Some(source_file) => {
@@ -1031,10 +1030,10 @@ impl Renderer {
                         }
                     }
                 }
-                DisplayCallee::Mutated(target, (endl, _), mutation_id) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a></td></tr>",
+                DisplayCallee::Mutated(target, (endl, _), target_name, mutation_id) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\">Mutation in <span class=\"inline-code function\">{target_name}</span></p></td></tr>",
                            PathBuf::from("/file").join(&target.path).display(), target.path.display());
-                    
+
                     if let Some(source_file) = self.source_files.get(&target.path) {
                         render.push_str("<tbody>");
                         let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);

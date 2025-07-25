@@ -192,9 +192,9 @@ struct TraceParams {
 }
 
 pub enum DisplayCallee {
-    Complete(Span, (usize, usize), String),
+    Complete(Span, (usize, usize), String, String),
     Incomplete(String, String),
-    Mutated(Span, (usize, usize), MutationId),
+    Mutated(Span, (usize, usize), String, MutationId),
 }
 
 async fn get_trace(data: web::Data<AppState>, query: web::Query<TraceParams>) -> HttpResponse {
@@ -233,25 +233,26 @@ async fn get_trace(data: web::Data<AppState>, query: web::Query<TraceParams>) ->
     let ep_span = get_last_ep_call_span(entry_point.entry_point_id, definition_ids[0], &data.call_graph.call_graph);
     let callee_name = data.call_graph.definitions[definition_ids[0]].name.clone().unwrap_or_default();
     match (&entry_point.span, ep_span) {
-        (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, callee_name)),
-        (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, callee_name)),
+        (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, entry_point.name.clone(), callee_name)),
+        (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, entry_point.name.clone(), callee_name)),
         _ => spans.push(DisplayCallee::Incomplete(entry_point.path.clone(), callee_name)),
     }
 
     for [def_id, next_def_id] in definition_ids.array_windows::<2>() {
         let def = &data.call_graph.definitions[*def_id];
         let def_span = get_last_def_call_span(*def_id, *next_def_id, &data.call_graph.call_graph);
+        let callee_name = def.name.clone().unwrap_or_default();
         let next_callee_name = data.call_graph.definitions[*next_def_id].name.clone().unwrap_or_default();
         match (&def.span, def_span) {
-            (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, next_callee_name)),
-            (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, next_callee_name)),
+            (Some(span), Some(span2)) => spans.push(DisplayCallee::Complete(span.clone(), span2.end, callee_name, next_callee_name)),
+            (Some(span), None) => spans.push(DisplayCallee::Complete(span.clone(), span.end, callee_name, next_callee_name)),
             _ => spans.push(DisplayCallee::Incomplete(def.path.clone().unwrap_or_default(), next_callee_name)),
         }
     }
     
     let target_def = &data.call_graph.definitions[*definition_ids.last().unwrap()];
     let mutation_id = MutationId(query.mutation_id);
-    spans.push(DisplayCallee::Mutated(target_def.span.clone().unwrap(), data.mutations.mutations[mutation_id].origin_span.end, mutation_id));
+    spans.push(DisplayCallee::Mutated(target_def.span.clone().unwrap(), data.mutations.mutations[mutation_id].origin_span.end, target_def.name.clone().unwrap_or_default(), mutation_id));
 
     { 
         let mut renderer = data.renderer.lock().unwrap();
