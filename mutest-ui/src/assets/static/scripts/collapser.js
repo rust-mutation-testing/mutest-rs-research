@@ -25,7 +25,7 @@ async function collapse_and_show(el) {
         .filter(e => e.classList.length === 0 && e.childNodes.length > 15);
 
     for (let section of collapsable) {
-        let end = section.childNodes.length - 6;
+        let end = section.childNodes.length - 6; // -6 is the last element to remove in order for there to be 5 remaining elements
 
         for (let i = 5; i <= end; i++) {
             section.childNodes[i].style.display = "none";
@@ -36,7 +36,7 @@ async function collapse_and_show(el) {
                 node.style.display = "";
                 e.target.remove();
             }
-        }), section.childNodes[end]);
+        }), section.childNodes[end + 1]);
     }
 
     el.classList.remove('hidden');

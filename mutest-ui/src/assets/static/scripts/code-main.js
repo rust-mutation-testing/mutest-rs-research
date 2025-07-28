@@ -2,6 +2,21 @@ import { FileTree } from "./file-tree.js";
 import { MutationSwitcher } from "./mutation-switcher.js";
 import { collapse_and_show } from "./collapser.js";
 import { openQueryMutation } from "./mutations.js";
+import { Query } from "./query.js"
+
+function jumpToLine(lineNumber) {
+    let line = document.getElementById(`line-${lineNumber}`);
+    if (window.getComputedStyle(line).display !== 'none') {
+        line.scrollIntoView();
+        return;
+    }
+    let expRow = line;
+    while (expRow.classList.length !== 0) {
+        expRow = expRow.nextSibling;
+    }
+    expRow.getElementsByClassName('expand-button')[0].click();
+    line.scrollIntoView();
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     let ft = new FileTree(
@@ -13,7 +28,18 @@ document.addEventListener('DOMContentLoaded', function() {
         [...document.getElementsByClassName('mutation-conflict-region')]);
     ms.init();
 
-    collapse_and_show(document.getElementById('code-table')).then(r => openQueryMutation());
+    collapse_and_show(document.getElementById('code-table')).then(r => {
+        openQueryMutation();
+
+        let query = new Query(Query.queryString());
+        if (query.getAttribute('line_number') !== undefined) {
+            try {
+                jumpToLine(parseInt(query.getAttribute('line_number')));
+            } catch (e) {
+                console.error(`Error: failed to jump to line -- ${e}`);
+            }
+        }
+    });
 
     [...document.getElementsByClassName('show-trace-btn')].map(e => {
         e.addEventListener('click', async function (_e) {
