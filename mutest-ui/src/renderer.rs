@@ -1001,7 +1001,23 @@ impl Renderer {
                         Some(source_file) => {
                             let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
                             let mut line_number = callee.begin.0;
+
+                            let mut nudge = 1;
+                            while source_file[callee.begin.0 - (nudge + 1)].trim_start().starts_with("#[") {
+                                nudge += 1;
+                            }
+
                             render.push_str("<tbody>");
+                            // rendering any annotation lines before the definition
+                            for line in &source_file[callee.begin.0 - nudge..callee.begin.0 - 1] {
+                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                render.push_str("<td class=\"line-content\">");
+                                self.highlight_line(&mut render, &mut highlighter, line);
+                                render.push_str("</td>");
+                                write_tr_close(&mut render);
+                                line_number += 1;
+                            }
+                            // rendering the definition
                             for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
                                 write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
@@ -1014,6 +1030,7 @@ impl Renderer {
                                 write_tr_close(&mut render);
                                 line_number += 1;
                             }
+                            // rendering all other lines
                             for line in &source_file[callee.end.0..=endl - 1] {
                                 write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
