@@ -53,29 +53,29 @@ fn inc_or_zero(n: usize) -> usize {
 
 /// Represents the available diff types for the interface. Used by both Line and LineBlock to
 /// represent a global (to the line) diff type and a local (to a line segment) diff type.
-pub enum DiffType {
-    New,
-    Old,
-    Unchanged,
-    DefSpan,
+pub enum InlineSpanType {
+    DiffNew,
+    DiffOld,
+    DiffUnchanged,
+    Definition,
 }
 
-impl DiffType {
+impl InlineSpanType {
     /// Converts a Similar ChangeTag into a DiffType.
-    pub fn from_change_tag(change_tag: ChangeTag) -> DiffType {
+    pub fn from_change_tag(change_tag: ChangeTag) -> InlineSpanType {
         match change_tag {
-            ChangeTag::Delete => DiffType::Old,
-            ChangeTag::Insert => DiffType::New,
-            ChangeTag::Equal => DiffType::Unchanged,
+            ChangeTag::Delete => InlineSpanType::DiffOld,
+            ChangeTag::Insert => InlineSpanType::DiffNew,
+            ChangeTag::Equal => InlineSpanType::DiffUnchanged,
         }
     }
 
     pub fn as_str(&self) -> &str {
         match self {
-            DiffType::New => "insert",
-            DiffType::Old => "remove",
-            DiffType::DefSpan => "def-span",
-            DiffType::Unchanged => "",
+            InlineSpanType::DiffNew => "insert",
+            InlineSpanType::DiffOld => "remove",
+            InlineSpanType::Definition => "def-span",
+            InlineSpanType::DiffUnchanged => "",
         }
     }
 }
@@ -84,7 +84,7 @@ impl DiffType {
 /// of line blocks, which are individual segments of the whole line.
 struct Line {
     /// The global diff type for the line.
-    diff_type: DiffType,
+    diff_type: InlineSpanType,
     /// The line blocks that make up the line content.
     blocks: Vec<LineBlock>,
     /// The line number. As 0 is never a line number, 0 is reserved for showing no line number.
@@ -94,7 +94,7 @@ struct Line {
 /// Contains a segment of a larger line.
 struct LineBlock {
     text: String,
-    diff_type: DiffType,
+    diff_type: InlineSpanType,
 }
 
 fn write_detection_status_marker(html_out: &mut String, detection_status: &Option<DetectionStatus>) {
@@ -105,7 +105,7 @@ fn write_detection_status_mini_marker(html_out: &mut String, detection_status: &
     write!(html_out, "<div class=\"detection-status-marker mini {0}\" title=\"{0}\"></div>", get_detection_status(detection_status));
 }
 
-fn write_code_tr_open(html_out: &mut String, line_type: &DiffType, detection_status: &Option<DetectionStatus>, line_number: usize, traces_button: bool) {
+fn write_code_tr_open(html_out: &mut String, line_type: &InlineSpanType, detection_status: &Option<DetectionStatus>, line_number: usize, traces_button: bool) {
     write!(html_out, "<tr id=\"line-{line_number}\" class=\"line-wrapper {}\">", line_type.as_str());
     html_out.push_str("<td class=\"line-controls");
     if line_number == 0 {
@@ -247,11 +247,11 @@ impl Renderer {
 
                             for i in 0..unchanged_start_lines {
                                 lines.push(Line {
-                                    diff_type: DiffType::Unchanged,
+                                    diff_type: InlineSpanType::DiffUnchanged,
                                     number: conflict.start_line + i,
                                     blocks: vec![
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: conflict_region_lines.get(i).unwrap().to_string(),
                                         }
                                     ]
@@ -261,19 +261,19 @@ impl Renderer {
                             if mutation.starts.line == mutation.ends.line {
                                 let old_line = conflict_region_lines.get(unchanged_start_lines).unwrap();
                                 lines.push(Line {
-                                    diff_type: DiffType::Old,
+                                    diff_type: InlineSpanType::DiffOld,
                                     number: mutation.starts.line,
                                     blocks: vec![
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: old_line[0..mutation.starts.char].to_string(),
                                         },
                                         LineBlock {
-                                            diff_type: DiffType::Old,
+                                            diff_type: InlineSpanType::DiffOld,
                                             text: old_line[mutation.starts.char..mutation.ends.char].to_string(),
                                         },
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: old_line[mutation.ends.char..old_line.len()].to_string(),
                                         }
                                     ]
@@ -284,41 +284,41 @@ impl Renderer {
                                     let line_number = mutation.starts.line + i - unchanged_start_lines;
                                     if i == unchanged_start_lines {
                                         lines.push(Line {
-                                            diff_type: DiffType::Old,
+                                            diff_type: InlineSpanType::DiffOld,
                                             number: line_number,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: line[0..mutation.starts.char].to_string(),
                                                 },
                                                 LineBlock {
-                                                    diff_type: DiffType::Old,
+                                                    diff_type: InlineSpanType::DiffOld,
                                                     text: line[mutation.starts.char..line.len()].to_string(),
                                                 }
                                             ]
                                         });
                                     } else if i == mutation_end_line_index {
                                         lines.push(Line {
-                                            diff_type: DiffType::Old,
+                                            diff_type: InlineSpanType::DiffOld,
                                             number: line_number,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::Old,
+                                                    diff_type: InlineSpanType::DiffOld,
                                                     text: line[0..mutation.ends.char].to_string(),
                                                 },
                                                 LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: line[mutation.ends.char..line.len()].to_string(),
                                                 }
                                             ]
                                         });
                                     } else {
                                         lines.push(Line {
-                                            diff_type: DiffType::Old,
+                                            diff_type: InlineSpanType::DiffOld,
                                             number: line_number,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::Old,
+                                                    diff_type: InlineSpanType::DiffOld,
                                                     text: line.to_string(),
                                                 }
                                             ]
@@ -334,19 +334,19 @@ impl Renderer {
                                 let new_line = replaced_lines.get(unchanged_start_lines).unwrap();
                                 let mutation_end_offset = mutation.starts.char + mutation.replacement.len();
                                 lines.push(Line {
-                                    diff_type: DiffType::New,
+                                    diff_type: InlineSpanType::DiffNew,
                                     number: 0, // as line numbers cannot be 0, 0 is used as null
                                     blocks: vec![
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: new_line[0..mutation.starts.char].to_string(),
                                         },
                                         LineBlock {
-                                            diff_type: DiffType::New,
+                                            diff_type: InlineSpanType::DiffNew,
                                             text: new_line[mutation.starts.char..mutation_end_offset].to_string(),
                                         },
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: new_line[mutation_end_offset..new_line.len()].to_string(),
                                         }
                                     ]
@@ -356,15 +356,15 @@ impl Renderer {
                                     let line = replaced_lines.get(i).unwrap();
                                     if i == unchanged_start_lines {
                                         lines.push(Line {
-                                            diff_type: DiffType::New,
+                                            diff_type: InlineSpanType::DiffNew,
                                             number: 0,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: line[0..mutation.starts.char].to_string(),
                                                 },
                                                 LineBlock {
-                                                    diff_type: DiffType::New,
+                                                    diff_type: InlineSpanType::DiffNew,
                                                     text: line[mutation.starts.char..line.len()].to_string(),
                                                 }
                                             ]
@@ -372,26 +372,26 @@ impl Renderer {
                                     } else if i == mutation_end_line_index {
                                         let end_index = split_lines(&mutation.replacement).last().unwrap().len();
                                         lines.push(Line {
-                                            diff_type: DiffType::New,
+                                            diff_type: InlineSpanType::DiffNew,
                                             number: 0,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::New,
+                                                    diff_type: InlineSpanType::DiffNew,
                                                     text: line[0..end_index].to_string(),
                                                 },
                                                 LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: line[end_index..line.len()].to_string(),
                                                 }
                                             ]
                                         });
                                     } else {
                                         lines.push(Line {
-                                            diff_type: DiffType::New,
+                                            diff_type: InlineSpanType::DiffNew,
                                             number: 0,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::New,
+                                                    diff_type: InlineSpanType::DiffNew,
                                                     text: line.to_string(),
                                                 }
                                             ]
@@ -404,11 +404,11 @@ impl Renderer {
 
                             for i in mutation_end_line_index + 1..conflict_region_lines.len() {
                                 lines.push(Line {
-                                    diff_type: DiffType::Unchanged,
+                                    diff_type: InlineSpanType::DiffUnchanged,
                                     number: conflict.start_line + i,
                                     blocks: vec![
                                         LineBlock {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             text: conflict_region_lines.get(i).unwrap().to_string(),
                                         }
                                     ]
@@ -429,7 +429,7 @@ impl Renderer {
 
                                             let word_diff = TextDiff::from_words(change.value(), insert_change.value());
                                             let mut line = Line {
-                                                diff_type: DiffType::Old,
+                                                diff_type: InlineSpanType::DiffOld,
                                                 number: conflict.start_line + original_lines_counter,
                                                 blocks: vec![],
                                             };
@@ -445,7 +445,7 @@ impl Renderer {
 
                                                         if inline_unchange_value != "" {
                                                             line.blocks.push(LineBlock {
-                                                                diff_type: DiffType::Unchanged,
+                                                                diff_type: InlineSpanType::DiffUnchanged,
                                                                 text: inline_unchange_value.clone(),
                                                             });
                                                             inline_unchange_value = String::new();
@@ -457,7 +457,7 @@ impl Renderer {
 
                                                         if inline_delete_value != "" {
                                                             line.blocks.push(LineBlock {
-                                                                diff_type: DiffType::Old,
+                                                                diff_type: InlineSpanType::DiffOld,
                                                                 text: inline_delete_value.clone(),
                                                             });
                                                             inline_delete_value = String::new();
@@ -468,14 +468,14 @@ impl Renderer {
 
                                             if inline_unchange_value != "" {
                                                 line.blocks.push(LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: inline_unchange_value.clone(),
                                                 });
                                             }
 
                                             if inline_delete_value != "" {
                                                 line.blocks.push(LineBlock {
-                                                    diff_type: DiffType::Old,
+                                                    diff_type: InlineSpanType::DiffOld,
                                                     text: inline_delete_value.clone(),
                                                 });
                                             }
@@ -483,11 +483,11 @@ impl Renderer {
                                             lines.push(line);
                                         } else {
                                             lines.push(Line {
-                                                diff_type: DiffType::Old,
+                                                diff_type: InlineSpanType::DiffOld,
                                                 number: conflict.start_line + original_lines_counter,
                                                 blocks: vec![
                                                     LineBlock {
-                                                        diff_type: DiffType::Unchanged,
+                                                        diff_type: InlineSpanType::DiffUnchanged,
                                                         text: change.value().to_string(),
                                                     }
                                                 ]
@@ -502,7 +502,7 @@ impl Renderer {
 
                                             let word_diff = TextDiff::from_words(delete_change.value(), change.value());
                                             let mut line = Line {
-                                                diff_type: DiffType::New,
+                                                diff_type: InlineSpanType::DiffNew,
                                                 number: 0,
                                                 blocks: vec![],
                                             };
@@ -518,7 +518,7 @@ impl Renderer {
 
                                                         if inline_unchange_value != "" {
                                                             line.blocks.push(LineBlock {
-                                                                diff_type: DiffType::Unchanged,
+                                                                diff_type: InlineSpanType::DiffUnchanged,
                                                                 text: inline_unchange_value.clone(),
                                                             });
                                                             inline_unchange_value = String::new();
@@ -529,7 +529,7 @@ impl Renderer {
 
                                                         if inline_insert_value != "" {
                                                             line.blocks.push(LineBlock {
-                                                                diff_type: DiffType::New,
+                                                                diff_type: InlineSpanType::DiffNew,
                                                                 text: inline_insert_value.clone(),
                                                             });
                                                             inline_insert_value = String::new();
@@ -540,14 +540,14 @@ impl Renderer {
 
                                             if inline_unchange_value != "" {
                                                 line.blocks.push(LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: inline_unchange_value.clone(),
                                                 });
                                             }
 
                                             if inline_insert_value != "" {
                                                 line.blocks.push(LineBlock {
-                                                    diff_type: DiffType::New,
+                                                    diff_type: InlineSpanType::DiffNew,
                                                     text: inline_insert_value.clone(),
                                                 });
                                             }
@@ -555,11 +555,11 @@ impl Renderer {
                                             lines.push(line);
                                         } else {
                                             lines.push(Line {
-                                                diff_type: DiffType::New,
+                                                diff_type: InlineSpanType::DiffNew,
                                                 number: 0,
                                                 blocks: vec![
                                                     LineBlock {
-                                                        diff_type: DiffType::Unchanged,
+                                                        diff_type: InlineSpanType::DiffUnchanged,
                                                         text: change.value().to_string(),
                                                     }
                                                 ]
@@ -568,11 +568,11 @@ impl Renderer {
                                     }
                                     ChangeTag::Equal => {
                                         lines.push(Line {
-                                            diff_type: DiffType::Unchanged,
+                                            diff_type: InlineSpanType::DiffUnchanged,
                                             number: conflict.start_line + original_lines_counter,
                                             blocks: vec![
                                                 LineBlock {
-                                                    diff_type: DiffType::Unchanged,
+                                                    diff_type: InlineSpanType::DiffUnchanged,
                                                     text: change.value().to_string(),
                                                 }
                                             ]
@@ -617,17 +617,17 @@ impl Renderer {
     /// be syntax highlighted.
     fn highlight_block(&self, line_block: &LineBlock, html_out: &mut String, highlighter: &mut HighlightLines) {
         match line_block.diff_type {
-            DiffType::New | DiffType::Old | DiffType::DefSpan => {
+            InlineSpanType::DiffNew | InlineSpanType::DiffOld | InlineSpanType::Definition => {
                 let _ = write!(html_out, "<span class=\"inline-diff {}\">", line_block.diff_type.as_str());
             },
-            DiffType::Unchanged => {},
+            InlineSpanType::DiffUnchanged => {},
         }
 
         self.highlight_line(html_out, highlighter, &line_block.text);
 
         match line_block.diff_type {
-            DiffType::New | DiffType::Old | DiffType::DefSpan => html_out.push_str("</span>"),
-            DiffType::Unchanged => {}
+            InlineSpanType::DiffNew | InlineSpanType::DiffOld | InlineSpanType::Definition => html_out.push_str("</span>"),
+            InlineSpanType::DiffUnchanged => {}
         }
     }
 
@@ -912,7 +912,7 @@ impl Renderer {
                 }
             }
 
-            write_code_tr_open(&mut render, &DiffType::Unchanged, &None, i + 1, false);
+            write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, i + 1, false);
             render.push_str("<td class=\"line-content\">");
             self.highlight_line(&mut render, &mut highlighter, &file_lines[i]);
             render.push_str("</td>");
@@ -1010,7 +1010,7 @@ impl Renderer {
                             render.push_str("<tbody>");
                             // rendering any annotation lines before the definition
                             for line in &source_file[callee.begin.0 - nudge..callee.begin.0 - 1] {
-                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
                                 self.highlight_line(&mut render, &mut highlighter, line);
                                 render.push_str("</td>");
@@ -1019,20 +1019,20 @@ impl Renderer {
                             }
                             // rendering the definition
                             for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
-                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
                                 if callee.begin.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.begin.1 - 1).into()) };
-                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse()?, diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
                                 if callee.end.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.end.1 - 1).into()) };
-                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
-                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse()?, diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type: InlineSpanType::Definition }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
                                 render.push_str("</td>");
                                 write_tr_close(&mut render);
                                 line_number += 1;
                             }
                             // rendering all other lines
                             for line in &source_file[callee.end.0..=endl - 1] {
-                                write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
                                 self.highlight_line(&mut render, &mut highlighter, line);
                                 render.push_str("</td>");
@@ -1058,7 +1058,7 @@ impl Renderer {
                         let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
                         let mut line_number = target.begin.0;
                         for line in &source_file[target.begin.0 - 1..endl - 1] {
-                            write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
+                            write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
                             render.push_str("<td class=\"line-content\">");
                             self.highlight_line(&mut render, &mut highlighter, line);
                             render.push_str("</td>");
