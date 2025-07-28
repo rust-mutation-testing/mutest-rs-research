@@ -903,6 +903,7 @@ table {
     padding: 8px 10px;
     display: flex;
     align-items: center;
+    gap: 10px;
 
     & > .file-path {
         font-family: monospace;
@@ -912,6 +913,28 @@ table {
 
         &:hover {
             opacity: 0.8;
+        }
+    }
+}
+
+.generic-text {
+    font-family: monospace;
+    color: #fff;
+}
+
+.inline-code {
+    background: var(--code-bg);
+    font-family: monospace;
+    color: var(--numbers-fg);
+    padding: 1px 4px;
+    border-radius: 5px;
+
+    &.function {
+        color: rgb(255,198,109);
+
+        &::after {
+            content: "()";
+            color: #fff;
         }
     }
 }
