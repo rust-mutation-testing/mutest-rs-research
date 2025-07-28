@@ -21,7 +21,7 @@
     --inline-delete: rgba(255, 0, 0, 0.4);
     --line-insert: rgba(0, 128, 0, 0.24);
     --inline-insert: rgba(0, 128, 0, 0.7);
-    --inline-def-span: rgba(74, 199, 227, 0.18);
+    --inline-definition: rgb(32, 215, 255);
 
     --level: 0;
 }
@@ -194,8 +194,26 @@ table {
         background: var(--inline-insert);
     }
 
-    &.def-span {
-        background: var(--inline-def-span);
+    &.definition {
+        position: relative;
+        text-decoration: underline;
+        text-decoration-skip-ink: none;
+        text-decoration-style: wavy;
+        text-decoration-color: var(--inline-definition);
+
+        &.blocker {
+            margin-left: 40px;
+        }
+
+        &::before {
+            position: absolute;
+            content: "def:";
+            background: var(--numbers-bg);
+            padding: 1px 3px;
+            border-radius: 5px;
+            color: var(--numbers-fg);
+            left: -40px;
+        }
     }
 }
 
