@@ -962,7 +962,7 @@ impl Renderer {
         write!(html_out, "</ul>");
     }
 
-    pub fn render_trace(&self, mutation_id: u32, callees: Vec<DisplayCallee>) -> String {
+    pub fn render_trace(&self, mutation_id: u32, callees: Vec<DisplayCallee>) -> Result<String, Box<dyn std::error::Error>> {
         let mut render = String::from("<!DOCTYPE html><html><head>");
         render.push_str("<meta charset=\"utf-8\">");
         write!(render, "<title>Mutest Report - Viewing Trace for Mutation {mutation_id}</title>");
@@ -1005,9 +1005,11 @@ impl Renderer {
                             for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
                                 write_code_tr_open(&mut render, &DiffType::Unchanged, &None, line_number, false);
                                 render.push_str("<td class=\"line-content\">");
-                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
-                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse().unwrap(), diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
-                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse().unwrap(), diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                if callee.begin.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.begin.1 - 1).into()) };
+                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse()?, diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
+                                if callee.end.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.end.1 - 1).into()) };
+                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type: DiffType::DefSpan }, &mut render, &mut highlighter);
+                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse()?, diff_type: DiffType::Unchanged }, &mut render, &mut highlighter);
                                 render.push_str("</td>");
                                 write_tr_close(&mut render);
                                 line_number += 1;
@@ -1055,6 +1057,6 @@ impl Renderer {
         }
         write!(render, "</tbody></table></div><div class=\"status-bar\"><div class=\"status-text\">Trace for Mutation {mutation_id}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">/</span> to search</div></div></div>");
         render.push_str("</body></html>");
-        render
+        Ok(render)
     }
 }
