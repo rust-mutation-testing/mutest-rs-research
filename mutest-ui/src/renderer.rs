@@ -58,6 +58,7 @@ pub enum InlineSpanType {
     DiffOld,
     DiffUnchanged,
     Definition,
+    BlockerDefinition, // a definition that requires content to be moved in order to display
 }
 
 impl InlineSpanType {
@@ -74,7 +75,8 @@ impl InlineSpanType {
         match self {
             InlineSpanType::DiffNew => "insert",
             InlineSpanType::DiffOld => "remove",
-            InlineSpanType::Definition => "def-span",
+            InlineSpanType::Definition => "definition",
+            InlineSpanType::BlockerDefinition => "definition blocker",
             InlineSpanType::DiffUnchanged => "",
         }
     }
@@ -617,17 +619,17 @@ impl Renderer {
     /// be syntax highlighted.
     fn highlight_block(&self, line_block: &LineBlock, html_out: &mut String, highlighter: &mut HighlightLines) {
         match line_block.diff_type {
-            InlineSpanType::DiffNew | InlineSpanType::DiffOld | InlineSpanType::Definition => {
+            InlineSpanType::DiffUnchanged => {},
+            _ => {
                 let _ = write!(html_out, "<span class=\"inline-diff {}\">", line_block.diff_type.as_str());
             },
-            InlineSpanType::DiffUnchanged => {},
         }
 
         self.highlight_line(html_out, highlighter, &line_block.text);
 
         match line_block.diff_type {
-            InlineSpanType::DiffNew | InlineSpanType::DiffOld | InlineSpanType::Definition => html_out.push_str("</span>"),
             InlineSpanType::DiffUnchanged => {}
+            _ => html_out.push_str("</span>"),
         }
     }
 
@@ -1024,7 +1026,14 @@ impl Renderer {
                                 if callee.begin.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.begin.1 - 1).into()) };
                                 self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
                                 if callee.end.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.end.1 - 1).into()) };
-                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type: InlineSpanType::Definition }, &mut render, &mut highlighter);
+                                
+                                let diff_type = if callee.begin.1 == 1 || line[..callee.begin.1 - 1].trim_start().len() > 0 {
+                                    InlineSpanType::BlockerDefinition
+                                } else {
+                                    InlineSpanType::Definition
+                                };
+                                
+                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type }, &mut render, &mut highlighter);
                                 self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
                                 render.push_str("</td>");
                                 write_tr_close(&mut render);
