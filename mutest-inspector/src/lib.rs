@@ -18,6 +18,8 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use actix_files::Files;
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::http::header::LOCATION;
+use actix_web::web::Redirect;
 use serde::de::{DeserializeOwned, Error as DeError};
 use serde::{Deserialize, Serialize};
 use mutest_json::call_graph::*;
@@ -256,7 +258,15 @@ async fn get_trace(data: web::Data<AppState>, query: web::Query<TraceParams>) ->
 
     { 
         let mut renderer = data.renderer.lock().unwrap();
-        body = renderer.render_trace(query.mutation_id, spans);
+        match renderer.render_trace(query.mutation_id, spans) {
+            Ok(b) => body = b,
+            Err(err) => {
+                println!("\x1b[31m[mutest-report] {}\x1b[0m", err);
+                return HttpResponse::SeeOther()
+                    .append_header((LOCATION, "/"))
+                    .finish()
+            }
+        }
     }
     
     HttpResponse::Ok().body(body)
