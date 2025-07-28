@@ -106,7 +106,7 @@ fn write_detection_status_mini_marker(html_out: &mut String, detection_status: &
 }
 
 fn write_code_tr_open(html_out: &mut String, line_type: &DiffType, detection_status: &Option<DetectionStatus>, line_number: usize, traces_button: bool) {
-    write!(html_out, "<tr class=\"line-wrapper {}\">", line_type.as_str());
+    write!(html_out, "<tr id=\"line-{line_number}\" class=\"line-wrapper {}\">", line_type.as_str());
     html_out.push_str("<td class=\"line-controls");
     if line_number == 0 {
         html_out.push_str(" new")
@@ -994,8 +994,8 @@ impl Renderer {
                     render.push_str("</td></tr>");
                 }
                 DisplayCallee::Complete(callee, (endl, _), callee_name, next_callee_name) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\"><span class=\"inline-code function\">{callee_name}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></p></td></tr>",
-                           PathBuf::from("/file").join(&callee.path).display(), callee.path.display());
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}?line_number={}\">{}</a><p class=\"generic-text\"><span class=\"inline-code function\">{callee_name}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></p></td></tr>",
+                           PathBuf::from("/file").join(&callee.path).display(), callee.begin.0, callee.path.display());
 
                     match self.source_files.get(&callee.path) {
                         Some(source_file) => {
