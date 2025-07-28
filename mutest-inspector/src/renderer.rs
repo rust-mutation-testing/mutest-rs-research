@@ -1031,8 +1031,8 @@ impl Renderer {
                     }
                 }
                 DisplayCallee::Mutated(target, (endl, _), target_name, mutation_id) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\">Mutation in <span class=\"inline-code function\">{target_name}</span></p></td></tr>",
-                           PathBuf::from("/file").join(&target.path).display(), target.path.display());
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\">Mutation <span class=\"inline-code\">{}</span> in <span class=\"inline-code function\">{target_name}</span></p></td></tr>",
+                           PathBuf::from("/file").join(&target.path).display(), target.path.display(), mutation_id.0);
 
                     if let Some(source_file) = self.source_files.get(&target.path) {
                         render.push_str("<tbody>");
@@ -1046,8 +1046,9 @@ impl Renderer {
                             write_tr_close(&mut render);
                             line_number += 1;
                         }
-                        render.push_str("</tbody>");
+                        render.push_str("</tbody><tbody class=\"mutation\">");
                         render.push_str(&self.render_cache.mutations[mutation_id.as_index()]);
+                        render.push_str("</tbody>");
                     }
                 }
             }
