@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::fmt::Write;
+use actix_web::http::header::DispositionType::Inline;
 use similar::{ChangeTag, TextDiff};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style, Theme, ThemeSet};
@@ -10,7 +11,7 @@ use mutest_json::call_graph::{CallGraph, CallGraphInfo};
 use mutest_json::{Definition, Idx, Span};
 use crate::config::SysDiffType;
 use crate::mutations::{Conflict, DetectionStatus, Mutation, Mutations, Range};
-use crate::{file_tree, split_lines, DefCallTrace, DefTraceGroup, DisplayCallee};
+use crate::{file_tree, split_lines, CompleteDisplayCallee, DefCallTrace, DefTraceGroup, DisplayCallee, NameOrPath};
 
 /// Calculates the offset of a Range within its wider Conflict. This is crucial for mutations that
 /// are fewer lines than the region they are in.
@@ -59,6 +60,7 @@ pub enum InlineSpanType {
     DiffUnchanged,
     Definition,
     BlockerDefinition, // a definition that requires content to be moved in order to display
+    Call,
 }
 
 impl InlineSpanType {
@@ -78,6 +80,7 @@ impl InlineSpanType {
             InlineSpanType::Definition => "definition",
             InlineSpanType::BlockerDefinition => "definition blocker",
             InlineSpanType::DiffUnchanged => "",
+            InlineSpanType::Call => "call",
         }
     }
 }
@@ -988,64 +991,74 @@ impl Renderer {
         render.push_str(&standard_columns);
         for callee in callees {
             match callee {
-                DisplayCallee::Incomplete(def_path, next_callee_name) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><p class=\"generic-text\">Definition <span class=\"inline-code\">{def_path}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></td></tr>");
+                DisplayCallee::Incomplete(d) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><p class=\"generic-text\">Definition <span class=\"inline-code\">{}</span> calls ", html_escape::encode_text(&d.caller_path));
+
+                    match d.callee_name_or_path {
+                        NameOrPath::Name(s) => write!(render, "<span class=\"inline-code function\">{}</span></p></td></tr>", html_escape::encode_text(&s)),
+                        NameOrPath::Path(s) => write!(render, "definition <span class=\"inline-code\">{}</span></p></td></tr>", html_escape::encode_text(&s)),
+                        NameOrPath::Err => write!(render, "<span class=\"inline-code\">{}</span></p></td></tr>", html_escape::encode_text("<anonymous>")),
+                    };
+
                     render.push_str("<tr><td></td><td></td><td class=\"error-wrapper\">");
                     write_icon(&mut render, "error.png");
                     render.push_str("<h3 class=\"error-text\">Unable to load source file</h3>");
                     render.push_str("</td></tr>");
                 }
-                DisplayCallee::Complete(callee, (endl, _), callee_name, next_callee_name) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}?line_number={}\">{}</a><p class=\"generic-text\"><span class=\"inline-code function\">{callee_name}</span> calls <span class=\"inline-code function\">{next_callee_name}</span></p></td></tr>",
-                           PathBuf::from("/file").join(&callee.path).display(), callee.begin.0, callee.path.display());
+                DisplayCallee::Complete(mut d) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{href}?line_number={line_number}\">{callee_path}</a><p class=\"generic-text\">",
+                           href = PathBuf::from("/file").join(&d.caller_def_span.path).display(),
+                           line_number = d.caller_def_span.begin.0,
+                           callee_path = d.caller_def_span.path.display(),
+                    );
 
-                    match self.source_files.get(&callee.path) {
+                    match d.caller_name_or_path {
+                        NameOrPath::Name(s) => write!(render, "<span class=\"inline-code function\">{}</span> calls ", html_escape::encode_text(&s)),
+                        NameOrPath::Path(s) => write!(render, "Definition <span class=\"inline-code\">{}</span> calls ", html_escape::encode_text(&s)),
+                        NameOrPath::Err => write!(render, "<span class=\"inline-code\">{}</span> calls ", html_escape::encode_text("<anonymous>")),
+                    };
+
+                    match d.callee_name_or_path {
+                        NameOrPath::Name(s) => write!(render, "<span class=\"inline-code function\">{}</span></p></td></tr>", html_escape::encode_text(&s)),
+                        NameOrPath::Path(s) => write!(render, "definition <span class=\"inline-code\">{}</span></p></td></tr>", html_escape::encode_text(&s)),
+                        NameOrPath::Err => write!(render, "<span class=\"inline-code\">{}</span></p></td></tr>", html_escape::encode_text("<anonymous>")),
+                    };
+
+                    match self.source_files.get(&d.caller_def_span.path) {
                         Some(source_file) => {
                             let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
-                            let mut line_number = callee.begin.0;
 
-                            let mut nudge = 1;
-                            while source_file[callee.begin.0 - (nudge + 1)].trim_start().starts_with("#[") {
+                            let mut nudge = 0;
+                            while source_file[d.caller_def_span.begin.0 - 1 - (nudge + 1)].trim_start().starts_with("#[") {
                                 nudge += 1;
                             }
 
                             render.push_str("<tbody>");
-                            // rendering any annotation lines before the definition
-                            for line in &source_file[callee.begin.0 - nudge..callee.begin.0 - 1] {
-                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
-                                render.push_str("<td class=\"line-content\">");
-                                self.highlight_line(&mut render, &mut highlighter, line);
-                                render.push_str("</td>");
-                                write_tr_close(&mut render);
-                                line_number += 1;
-                            }
-                            // rendering the definition
-                            for line in &source_file[callee.begin.0 - 1..=callee.end.0 - 1] {
-                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
-                                render.push_str("<td class=\"line-content\">");
-                                if callee.begin.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.begin.1 - 1).into()) };
-                                self.highlight_block(&LineBlock { text: line[..callee.begin.1 - 1].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
-                                if callee.end.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", callee.end.1 - 1).into()) };
-                                
-                                let diff_type = if callee.begin.1 == 1 || line[..callee.begin.1 - 1].trim_start().len() > 0 {
-                                    InlineSpanType::BlockerDefinition
-                                } else {
-                                    InlineSpanType::Definition
-                                };
-                                
-                                self.highlight_block(&LineBlock { text: line[callee.begin.1 - 1..callee.end.1 - 1].parse()?, diff_type }, &mut render, &mut highlighter);
-                                self.highlight_block(&LineBlock { text: line[callee.end.1 - 1..].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
-                                render.push_str("</td>");
-                                write_tr_close(&mut render);
-                                line_number += 1;
-                            }
-                            // rendering all other lines
-                            for line in &source_file[callee.end.0..=endl - 1] {
-                                write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
-                                render.push_str("<td class=\"line-content\">");
-                                self.highlight_line(&mut render, &mut highlighter, line);
-                                render.push_str("</td>");
-                                write_tr_close(&mut render);
+
+                            let mut line_number = d.caller_def_span.begin.0 - nudge;
+                            for line in &source_file[d.caller_def_span.begin.0 - 1 - nudge..=d.snippet_end.0 - 1] {
+                                if (d.caller_def_span.begin.0..=d.caller_def_span.end.0).contains(&line_number) {
+                                    let highlight_type = if d.caller_def_span.begin.1 == 1 || line[..d.caller_def_span.begin.1 - 1].trim_start().len() > 0 {
+                                        InlineSpanType::BlockerDefinition
+                                    } else {
+                                        InlineSpanType::Definition
+                                    };
+
+                                    self.render_inline_span_highlight(&mut render, &d.caller_def_span, highlight_type, &mut highlighter, line_number, &line)?;
+                                    line_number += 1;
+                                    continue;
+                                }
+
+                                if let Some(call_span) = d.call_spans.first() {
+                                    if (call_span.begin.0..=call_span.end.0).contains(&line_number) {
+                                        self.render_inline_span_highlight(&mut render, *call_span, InlineSpanType::Call, &mut highlighter, line_number, &line)?;
+                                        d.call_spans.remove(0);
+                                        line_number += 1;
+                                        continue;
+                                    }
+                                }
+
+                                self.render_line(&mut render, &mut highlighter, line_number, line);
                                 line_number += 1;
                             }
                             render.push_str("</tbody>");
@@ -1058,15 +1071,19 @@ impl Renderer {
                         }
                     }
                 }
-                DisplayCallee::Mutated(target, (endl, _), target_name, mutation_id) => {
-                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{}\">{}</a><p class=\"generic-text\">Mutation <span class=\"inline-code\">{}</span> in <span class=\"inline-code function\">{target_name}</span></p></td></tr>",
-                           PathBuf::from("/file").join(&target.path).display(), target.path.display(), mutation_id.0);
+                DisplayCallee::Mutated(d) => {
+                    write!(render, "<tr><td></td><td></td><td class=\"file-header\"><a class=\"file-path\" href=\"{href}\">{target_path}</a><p class=\"generic-text\">Mutation <span class=\"inline-code\">{mutation_id}</span> in <span class=\"inline-code function\">{target_name}</span></p></td></tr>",
+                        href = PathBuf::from("/file").join(&d.target_span.path).display(),
+                        target_path = d.target_span.path.display(),
+                        mutation_id = d.mutation_id.0,
+                        target_name = d.target_name,
+                    );
 
-                    if let Some(source_file) = self.source_files.get(&target.path) {
+                    if let Some(source_file) = self.source_files.get(&d.target_span.path) {
                         render.push_str("<tbody>");
                         let mut highlighter = HighlightLines::new(&self.syntax_highlighter.syntax_ref, &self.syntax_highlighter.theme);
-                        let mut line_number = target.begin.0;
-                        for line in &source_file[target.begin.0 - 1..endl - 1] {
+                        let mut line_number = d.target_span.begin.0;
+                        for line in &source_file[d.target_span.begin.0 - 1..d.snippet_end.0 - 1] {
                             write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
                             render.push_str("<td class=\"line-content\">");
                             self.highlight_line(&mut render, &mut highlighter, line);
@@ -1075,7 +1092,7 @@ impl Renderer {
                             line_number += 1;
                         }
                         render.push_str("</tbody><tbody class=\"mutation\">");
-                        render.push_str(&self.render_cache.mutations[mutation_id.as_index()]);
+                        render.push_str(&self.render_cache.mutations[d.mutation_id.as_index()]);
                         render.push_str("</tbody>");
                     }
                 }
@@ -1084,5 +1101,27 @@ impl Renderer {
         write!(render, "</tbody></table></div><div class=\"status-bar\"><div class=\"status-text\">Trace for Mutation {mutation_id}</div><div class=\"spacer\"></div><div class=\"status-text\"><span class=\"key\">/</span> to search</div></div></div>");
         render.push_str("</body></html>");
         Ok(render)
+    }
+
+    fn render_line(&self, mut render: &mut String, mut highlighter: &mut HighlightLines, line_number: usize, line: &String) {
+        write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
+        render.push_str("<td class=\"line-content\">");
+        self.highlight_line(&mut render, &mut highlighter, line);
+        render.push_str("</td>");
+        write_tr_close(&mut render);
+    }
+
+    fn render_inline_span_highlight(&self, mut render: &mut String, highlight_span: &Span, highlight_type: InlineSpanType, mut highlighter: &mut HighlightLines, line_number: usize, line: &&String) -> Result<(), Box<dyn std::error::Error>> {
+        write_code_tr_open(&mut render, &InlineSpanType::DiffUnchanged, &None, line_number, false);
+        render.push_str("<td class=\"line-content\">");
+        if highlight_span.begin.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", highlight_span.begin.1 - 1).into()) };
+        self.highlight_block(&LineBlock { text: line[..highlight_span.begin.1 - 1].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
+        if highlight_span.end.1 - 1 > line.len() { return Err(format!("error: index {} out of bounds for `{line}`", highlight_span.end.1 - 1).into()) };
+
+        self.highlight_block(&LineBlock { text: line[highlight_span.begin.1 - 1..highlight_span.end.1 - 1].parse()?, diff_type: highlight_type }, &mut render, &mut highlighter);
+        self.highlight_block(&LineBlock { text: line[highlight_span.end.1 - 1..].parse()?, diff_type: InlineSpanType::DiffUnchanged }, &mut render, &mut highlighter);
+        render.push_str("</td>");
+        write_tr_close(&mut render);
+        Ok(())
     }
 }
