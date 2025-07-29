@@ -195,6 +195,22 @@ table {
         background: var(--inline-insert);
     }
 
+    &.call {
+        position: relative;
+        background: var(--inline-call);
+        margin-left: 48px;
+
+        &::before {
+            position: absolute;
+            content: "call:";
+            background: var(--numbers-bg);
+            padding: 1px 3px;
+            border-radius: 5px;
+            color: var(--numbers-fg);
+            left: -48px;
+        }
+    }
+
     &.definition {
         position: relative;
         text-decoration: underline;
@@ -217,19 +233,23 @@ table {
         }
     }
 
-    &.call {
+    &.def-and-call {
         position: relative;
         background: var(--inline-call);
-        margin-left: 48px;
+        margin-left: 74px;
+        text-decoration: underline;
+        text-decoration-skip-ink: none;
+        text-decoration-style: wavy;
+        text-decoration-color: var(--inline-definition);
 
         &::before {
             position: absolute;
-            content: "call:";
+            content: "def/call:";
             background: var(--numbers-bg);
             padding: 1px 3px;
             border-radius: 5px;
             color: var(--numbers-fg);
-            left: -48px;
+            left: -74px;
         }
     }
 }
