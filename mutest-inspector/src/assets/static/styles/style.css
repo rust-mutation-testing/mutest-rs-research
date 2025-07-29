@@ -22,6 +22,7 @@
     --line-insert: rgba(0, 128, 0, 0.24);
     --inline-insert: rgba(0, 128, 0, 0.7);
     --inline-definition: rgb(32, 215, 255);
+    --inline-call: rgb(32, 215, 255, 0.3);
 
     --level: 0;
 }
@@ -213,6 +214,22 @@ table {
             border-radius: 5px;
             color: var(--numbers-fg);
             left: -40px;
+        }
+    }
+
+    &.call {
+        position: relative;
+        background: var(--inline-call);
+        margin-left: 48px;
+
+        &::before {
+            position: absolute;
+            content: "call:";
+            background: var(--numbers-bg);
+            padding: 1px 3px;
+            border-radius: 5px;
+            color: var(--numbers-fg);
+            left: -48px;
         }
     }
 }
